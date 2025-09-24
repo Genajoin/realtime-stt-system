@@ -1,14 +1,9 @@
-# Основные зависимости для RealtimeSTT сервера
-RealtimeSTT>=0.2.0
-faster-whisper>=1.1.0
-
 # WebSocket сервер
 websockets>=12.0
 
-# Аудио обработка
-PyAudio>=0.2.14
+# Аудио обработка (PyAudio устанавливается через conda)
+# (RealtimeSTT, faster-whisper, librosa устанавливаются в отдельном стейдже)
 soundfile>=0.13.0
-librosa>=0.10.0
 scipy>=1.10.0
 numpy>=1.24.0
 
