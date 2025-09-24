@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════
 # Stage 1: Базовый PyTorch образ с CUDA (уже готов)
 # ═══════════════════════════════════════════════════════════════
-FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime AS pytorch-base
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
 
 # Только создаем рабочую директорию
 WORKDIR /app
@@ -14,8 +14,10 @@ WORKDIR /app
 # ═══════════════════════════════════════════════════════════════
 FROM pytorch-base AS system-libs
 
-# Устанавливаем ВСЕ системные зависимости через conda (cuDNN уже в образе)
-RUN conda install -c conda-forge -y \
+# Обновляем conda и устанавливаем реальный cuDNN 9 + системные зависимости
+RUN conda update -n base -c defaults conda -y && \
+    conda install -c nvidia -c conda-forge -y \
+    cudnn=9.5.0 \
     portaudio \
     ffmpeg \
     pyaudio \
