@@ -2,22 +2,31 @@
 # Стейджи разделены по типу и размеру зависимостей для максимального кеширования
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 1: Базовый PyTorch образ с CUDA (уже готов)
+# Stage 1: Базовый PyTorch образ с CUDA и cuDNN 9
 # ═══════════════════════════════════════════════════════════════
-FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime AS pytorch-base
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
 
 # Только создаем рабочую директорию
 WORKDIR /app
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 2: Системные библиотеки через conda (средний размер, редко меняются)
+# Stage 2: Создание символических ссылок для cuDNN и системные зависимости
 # ═══════════════════════════════════════════════════════════════
 FROM pytorch-base AS system-libs
 
-# Обновляем conda и устанавливаем реальный cuDNN 9 + системные зависимости
+# Создаем символические ссылки для cuDNN библиотек, которые ищет приложение
+RUN cd /opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib && \
+    for lib in libcudnn*.so.9; do \
+        base_name=$(echo "$lib" | sed 's/\.so\.9$//'); \
+        ln -sf "$lib" "${base_name}.so.9.1.0"; \
+        ln -sf "$lib" "${base_name}.so.9.1"; \
+        ln -sf "$lib" "${base_name}.so"; \
+    done && \
+    ldconfig
+
+# Устанавливаем системные зависимости через conda
 RUN conda update -n base -c defaults conda -y && \
-    conda install -c nvidia -c conda-forge -y \
-    cudnn=9.5.0 \
+    conda install -c conda-forge -y \
     portaudio \
     ffmpeg \
     pyaudio \
