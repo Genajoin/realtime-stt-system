@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile для GPU с оптимальным кешированием
-# Stage 1: Базовый образ NVIDIA CUDA с системными зависимостями
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04 AS base
+# Stage 1: Базовый образ Ubuntu с системными зависимостями
+FROM ubuntu:22.04 AS base
 
 # Устанавливаем системные зависимости (редко изменяются)
 RUN apt-get update && apt-get install -y \
