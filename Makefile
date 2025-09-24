@@ -386,3 +386,8 @@ docker-optimize:
 	@echo "$(YELLOW)🧹 Очистка неиспользуемого кеша...$(NC)"
 	docker system prune -f
 	docker builder prune -f
+
+run-websocket-client:
+	@echo "$(GREEN)🌐 Запуск WebSocket клиента для удаленного сервера...$(NC)"
+	@echo "$(BLUE)Подключение к серверу: genaminipc.awg$(NC)"
+	@python3 websocket_rich_client.py --server genaminipc.awg

@@ -77,7 +77,7 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
 
 # Команда по умолчанию с оптимальными параметрами для GPU
 CMD ["python3", "-u", "stt_server.py", \
-     "--model", "small", \
+     "--model", "medium", \
      "--language", "ru", \
      "--realtime_model_type", "tiny", \
      "--control_port", "8011", \

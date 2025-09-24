@@ -74,7 +74,7 @@ class WebSocketSTTClient:
         self.console.print("[yellow]Отключен от сервера[/yellow]")
     
     def setup_audio(self):
-        """Настройка аудио захвата."""
+        """Настройка аудио захвата с автоподбором параметров."""
         try:
             self.pyaudio_instance = pyaudio.PyAudio()
             
@@ -83,6 +83,7 @@ class WebSocketSTTClient:
             num_devices = info.get('deviceCount', 0)
             
             input_device = None
+            device_info = None
             for i in range(int(num_devices)):
                 device_info = self.pyaudio_instance.get_device_info_by_host_api_device_index(0, i)
                 max_input_channels = device_info.get('maxInputChannels', 0)
@@ -94,6 +95,32 @@ class WebSocketSTTClient:
             
             if input_device is None:
                 raise Exception("Не найдено подходящее аудио устройство")
+            
+            # Пробуем разные sample rate до успешного подключения
+            sample_rates = [16000, 44100, 48000, 22050, 8000]
+            
+            for rate in sample_rates:
+                try:
+                    # Проверяем поддержку sample rate для устройства
+                    if self.pyaudio_instance.is_format_supported(
+                        rate=rate,
+                        input_device=input_device,
+                        input_channels=self.channels,
+                        input_format=self.audio_format
+                    ):
+                        self.sample_rate = rate
+                        self.console.print(f"[green]✓ Используется sample rate: {rate} Hz[/green]")
+                        break
+                except:
+                    continue
+            else:
+                # Если не удалось найти поддерживаемый rate, используем default
+                if device_info:
+                    default_rate = device_info.get('defaultSampleRate', 16000)
+                    self.sample_rate = int(default_rate)
+                else:
+                    self.sample_rate = 16000
+                self.console.print(f"[yellow]⚠ Используется default sample rate: {self.sample_rate} Hz[/yellow]")
             
             # Создаем аудио поток
             self.audio_stream = self.pyaudio_instance.open(
