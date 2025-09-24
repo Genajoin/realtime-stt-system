@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile для GPU с оптимальным кешированием
 # Stage 1: Базовый образ NVIDIA CUDA с системными зависимостями
-FROM nvidia/cuda:11.8-runtime-ubuntu22.04 AS base
+FROM nvidia/cuda:12.1-runtime-ubuntu22.04 AS base
 
 # Устанавливаем системные зависимости (редко изменяются)
 RUN apt-get update && apt-get install -y \
@@ -24,8 +24,8 @@ COPY requirements-server.txt .
 RUN pip3 install --no-cache-dir -r requirements-server.txt
 
 # Устанавливаем PyTorch с CUDA поддержкой (самая большая зависимость)
-RUN pip3 install --no-cache-dir torch==2.5.1+cu118 torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu118
+RUN pip3 install --no-cache-dir torch==2.5.1+cu121 torchaudio==2.5.1 \
+    --index-url https://download.pytorch.org/whl/cu121
 
 # Stage 3: Production образ с кодом приложения
 FROM python-deps AS production
