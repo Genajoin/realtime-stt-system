@@ -1,39 +1,6 @@
-# Основные зависимости для распознавания речи
-RealtimeSTT>=0.2.0
-faster-whisper>=1.1.0
-
-# Для работы с GPU (опционально, раскомментируйте нужную версию)
-# CUDA 11.8
-# torch==2.5.1+cu118 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118
-
-# CUDA 12.1 (рекомендуется)
-# torch==2.5.1+cu121 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-
-# Или для CPU only
-torch>=2.0.0
-torchaudio>=2.0.0
-
-# Для цветного вывода в терминале
-colorama>=0.4.6
-
-# Для богатого интерфейса в терминале
-rich>=13.0.0
-
-# Для копирования в буфер обмена
-pyperclip>=1.8.0
-
-# WebSocket клиент
-websockets>=12.0
-
-# Аудио зависимости
-PyAudio>=0.2.14
-soundfile>=0.13.0
-librosa>=0.10.0
-
-# VAD (Voice Activity Detection)
-webrtcvad-wheels>=2.0.14
-silero-vad>=5.0  # опционально для улучшенного VAD
-
-# Дополнительные утилиты
-numpy>=1.24.0
-scipy>=1.10.0
+# Клиент зависимости для WebSocket STT
+websockets>=11.0
+pyaudio>=0.2.11
+rich>=13.0
+pyperclip>=1.8
+asyncio-mqtt>=0.11.1
