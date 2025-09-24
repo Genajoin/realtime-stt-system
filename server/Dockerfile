@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════
 # Stage 1: Базовый PyTorch образ с CUDA (уже готов)
 # ═══════════════════════════════════════════════════════════════
-FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime AS pytorch-base
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
 
 # Только создаем рабочую директорию
 WORKDIR /app
@@ -14,12 +14,13 @@ WORKDIR /app
 # ═══════════════════════════════════════════════════════════════
 FROM pytorch-base AS system-libs
 
-# Устанавливаем системные зависимости через conda
+# Устанавливаем ВСЕ системные зависимости через conda (избегаем apt-get)
 RUN conda install -c conda-forge -y \
     portaudio \
     ffmpeg \
     pyaudio \
     librosa \
+    git \
     && conda clean -afy
 
 # ═══════════════════════════════════════════════════════════════
