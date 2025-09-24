@@ -52,7 +52,7 @@ run-websocket-client:
 
 docker-build:
 	@echo "$(BLUE)🐳 Сборка Docker образа с GPU поддержкой...$(NC)"
-	docker compose build --no-cache
+	docker compose build
 
 docker-run:
 	@echo "$(BLUE)🚀 Запуск Docker контейнера...$(NC)"
@@ -113,3 +113,8 @@ test-connection:
 
 # Команда по умолчанию
 .DEFAULT_GOAL := help
+
+docker-build-no-cache:
+	@echo "$(YELLOW)🐳 Принудительная сборка без кеша (медленно!)...$(NC)"
+	docker compose build --no-cache --progress=plain
+
