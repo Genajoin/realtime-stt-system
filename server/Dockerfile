@@ -3,8 +3,9 @@
 
 # ═══════════════════════════════════════════════════════════════
 # Stage 1: Базовый PyTorch образ с CUDA и cuDNN 9
+# Используем альтернативный registry для доступа
 # ═══════════════════════════════════════════════════════════════
-FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
+FROM dockerhub.timeweb.cloud/pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
 
 # Только создаем рабочую директорию
 WORKDIR /app
