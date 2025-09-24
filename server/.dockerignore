@@ -1,0 +1,42 @@
+# Git и разработка
+.git
+.gitignore
+.github
+README.md
+*.md
+
+# Python кеш и виртуальное окружение
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Локальные файлы разработки
+.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Логи и временные файлы
+logs/
+*.log
+tmp/
+temp/

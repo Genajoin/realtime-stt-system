@@ -18,7 +18,7 @@ YELLOW := \033[0;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help install install-deps install-python run check clean test gpu-install cpu-install update lint format
+.PHONY: help install install-deps install-python run check clean test gpu-install cpu-install update lint format docker-build docker-run docker-stop docker-logs docker-gpu-build docker-gpu-run
 
 # Помощь (команда по умолчанию)
 help:
@@ -318,3 +318,55 @@ client-server:
 	@read -p "Введите IP адрес сервера: " server_ip; \
 	echo "$(GREEN)🌐 Подключение к серверу $$server_ip...$(NC)"; \
 	$(VENV_PYTHON) websocket_rich_client.py --server $$server_ip
+
+# ════════════════════════════════════════════════════════════════
+# Docker команды для удаленного сервера
+# ════════════════════════════════════════════════════════════════
+
+docker-build:
+	@echo "$(BLUE)🐳 Сборка Docker образа с GPU поддержкой...$(NC)"
+	docker compose build --no-cache
+
+docker-run:
+	@echo "$(BLUE)🚀 Запуск Docker контейнера...$(NC)"
+	docker compose up -d
+	@echo "$(GREEN)✅ Сервер запущен на портах 8011 (control) и 8012 (data)$(NC)"
+
+docker-stop:
+	@echo "$(YELLOW)⏹️  Остановка Docker контейнера...$(NC)"
+	docker compose down
+
+docker-restart: docker-stop docker-run
+	@echo "$(GREEN)🔄 Перезапуск контейнера завершен$(NC)"
+
+docker-logs:
+	@echo "$(BLUE)📋 Логи Docker контейнера:$(NC)"
+	docker compose logs -f
+
+docker-status:
+	@echo "$(BLUE)📊 Статус Docker контейнеров:$(NC)"
+	docker compose ps
+	@echo ""
+	@echo "$(BLUE)💾 Использование ресурсов:$(NC)"
+	docker stats --no-stream
+
+docker-clean:
+	@echo "$(YELLOW)🧹 Очистка Docker ресурсов...$(NC)"
+	docker compose down
+	docker system prune -f
+	@echo "$(GREEN)✅ Очистка завершена$(NC)"
+
+# Команды для удаленного сервера
+deploy:
+	@echo "$(BLUE)🌐 Деплой на удаленный сервер...$(NC)"
+	git push origin master
+	ssh genaminipc.awg "cd realtime-stt-system && git pull && docker compose down && docker compose up --build -d"
+	@echo "$(GREEN)✅ Деплой завершен$(NC)"
+
+remote-logs:
+	@echo "$(BLUE)📋 Логи с удаленного сервера:$(NC)"
+	ssh genaminipc.awg "cd realtime-stt-system && docker compose logs -f"
+
+remote-status:
+	@echo "$(BLUE)📊 Статус на удаленном сервере:$(NC)"
+	ssh genaminipc.awg "cd realtime-stt-system && docker compose ps && echo && docker stats --no-stream"
