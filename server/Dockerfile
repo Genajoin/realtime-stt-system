@@ -1,5 +1,5 @@
-# Dockerfile для RealtimeSTT сервера с поддержкой GPU
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04
+# Dockerfile для RealtimeSTT сервера (временно без GPU)
+FROM ubuntu:22.04
 
 # Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
@@ -22,9 +22,9 @@ COPY requirements-server.txt .
 # Устанавливаем Python зависимости
 RUN pip3 install --no-cache-dir -r requirements-server.txt
 
-# Устанавливаем PyTorch с CUDA поддержкой
-RUN pip3 install --no-cache-dir torch==2.5.1+cu121 torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu121
+# Устанавливаем PyTorch для CPU
+RUN pip3 install --no-cache-dir torch==2.5.1 torchaudio==2.5.1 \
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Копируем код сервера
 COPY stt_server.py .
@@ -52,6 +52,6 @@ CMD ["python3", "stt_server.py", \
      "--realtime_model_type", "tiny", \
      "--control_port", "8011", \
      "--data_port", "8012", \
-     "--device", "cuda", \
+     "--device", "cpu", \
      "--enable_realtime_transcription", \
      "--silero_use_onnx"]
