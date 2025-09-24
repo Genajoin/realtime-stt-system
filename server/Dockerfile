@@ -1,48 +1,25 @@
-# Максимально оптимизированный multi-stage Dockerfile
-# Стейджи упорядочены по частоте изменений для лучшего кеширования
+# Оптимизированный multi-stage Dockerfile
+# Используем официальный PyTorch образ с CUDA - намного проще и надежнее!
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 1: Базовая система (изменяется крайне редко)
+# Stage 1: Официальный PyTorch с CUDA (уже включает PyTorch + CUDA + cuDNN)
 # ═══════════════════════════════════════════════════════════════
-FROM ubuntu:22.04 AS system-base
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
 
-# Устанавливаем системные зависимости одним слоем
-RUN apt-get update && apt-get install -y \
-    python3=3.10.* \
-    python3-pip \
-    python3-dev \
+# Обновляем pip и устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
     portaudio19-dev \
     ffmpeg \
+    git \
     wget \
     curl \
-    git \
-    ca-certificates \
-    gnupg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Добавляем NVIDIA репозиторий для cuDNN
-RUN wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub | apt-key add - \
-    && echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64 /" > /etc/apt/sources.list.d/cuda.list \
-    && apt-get update \
-    && apt-get install -y libcudnn8 libcudnn8-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # ═══════════════════════════════════════════════════════════════
-# Stage 2: PyTorch установка (большая, редко изменяется)
+# Stage 2: Python зависимости приложения (~1GB)
 # ═══════════════════════════════════════════════════════════════
-FROM system-base AS pytorch-stage
-
-# Устанавливаем только PyTorch с CUDA (самый большой компонент ~2GB)
-RUN pip3 install --no-cache-dir --no-compile \
-    torch==2.5.1+cu121 \
-    torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu121
-
-# ═══════════════════════════════════════════════════════════════
-# Stage 3: Python зависимости приложения (средняя частота изменений)
-# ═══════════════════════════════════════════════════════════════
-FROM pytorch-stage AS app-deps
+FROM pytorch-base AS app-deps
 
 WORKDIR /app
 
@@ -51,7 +28,7 @@ COPY requirements-server.txt .
 RUN pip3 install --no-cache-dir --no-compile -r requirements-server.txt
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 4: Конфигурация окружения (редко изменяется)
+# Stage 3: Конфигурация окружения (~10MB)
 # ═══════════════════════════════════════════════════════════════
 FROM app-deps AS runtime-config
 
@@ -68,7 +45,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 5: Код приложения (изменяется часто - финальный слой)
+# Stage 4: Код приложения (~50KB, изменяется часто)
 # ═══════════════════════════════════════════════════════════════
 FROM runtime-config AS production
 
