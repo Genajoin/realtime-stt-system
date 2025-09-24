@@ -1,0 +1,382 @@
+#!/usr/bin/env python3
+"""
+Адаптированный STT сервер для Docker контейнера.
+Основан на оригинальном коде из RealtimeSTT/RealtimeSTT_server/stt_server.py
+с упрощениями и адаптацией для контейнерной среды.
+"""
+
+import os
+import sys
+import json
+import time
+import wave
+import asyncio
+import logging
+import threading
+from datetime import datetime
+from collections import deque
+import base64
+
+# Проверяем наличие зависимостей
+try:
+    import numpy as np
+    import websockets
+    from colorama import init, Fore, Style
+    from RealtimeSTT import AudioToTextRecorder
+    from scipy.signal import resample
+    import pyaudio
+except ImportError as e:
+    print(f"Ошибка импорта: {e}")
+    sys.exit(1)
+
+# Инициализация colorama
+init()
+
+# Глобальные переменные
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+
+# Цвета для вывода
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m' 
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+class STTServer:
+    def __init__(self, args):
+        self.args = args
+        self.recorder = None
+        self.recorder_ready = threading.Event()
+        self.stop_recorder = False
+        self.prev_text = ""
+        
+        # WebSocket соединения
+        self.control_connections = set()
+        self.data_connections = set()
+        self.audio_queue = asyncio.Queue()
+        
+        # Разрешенные методы и параметры для безопасности
+        self.allowed_methods = [
+            'set_microphone', 'abort', 'stop', 'clear_audio_queue', 
+            'wakeup', 'shutdown', 'text'
+        ]
+        self.allowed_parameters = [
+            'language', 'silero_sensitivity', 'post_speech_silence_duration',
+            'is_recording', 'use_wake_words'
+        ]
+        
+        print(f"{Colors.CYAN}Инициализация STT сервера...{Colors.ENDC}")
+        
+    def preprocess_text(self, text):
+        """Предобработка текста."""
+        text = text.lstrip()
+        if text.startswith("..."):
+            text = text[3:]
+        text = text.lstrip()
+        if text:
+            text = text[0].upper() + text[1:]
+        return text
+    
+    def text_detected(self, text, loop):
+        """Обработка real-time текста."""
+        text = self.preprocess_text(text)
+        self.prev_text = text
+        
+        # Отправляем в очередь для WebSocket клиентов
+        message = json.dumps({
+            'type': 'realtime',
+            'text': text
+        })
+        asyncio.run_coroutine_threadsafe(self.audio_queue.put(message), loop)
+        
+        # Выводим в консоль сервера
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        print(f"\r[{timestamp}] {Colors.CYAN}{text}{Colors.ENDC}", flush=True, end='')
+    
+    def process_final_text(self, text, loop):
+        """Обработка финального текста."""
+        text = self.preprocess_text(text)
+        if not text.strip():
+            return
+            
+        message = json.dumps({
+            'type': 'fullSentence', 
+            'text': text
+        })
+        asyncio.run_coroutine_threadsafe(self.audio_queue.put(message), loop)
+        
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        print(f"\r[{timestamp}] {Colors.BOLD}Предложение:{Colors.ENDC} {Colors.GREEN}{text}{Colors.ENDC}\n")
+        
+    def create_recorder_config(self, loop):
+        """Создание конфигурации для recorder."""
+        return {
+            'model': self.args.model,
+            'language': self.args.language,
+            'realtime_model_type': self.args.realtime_model_type,
+            'device': self.args.device,
+            'compute_type': 'default',
+            
+            # Real-time настройки
+            'enable_realtime_transcription': self.args.enable_realtime_transcription,
+            'realtime_processing_pause': 0.02,
+            'on_realtime_transcription_update': lambda text: self.text_detected(text, loop),
+            
+            # VAD настройки
+            'silero_sensitivity': 0.05,
+            'silero_use_onnx': self.args.silero_use_onnx,
+            'webrtc_sensitivity': 3,
+            'post_speech_silence_duration': 0.7,
+            'min_length_of_recording': 1.1,
+            'silero_deactivity_detection': True,
+            
+            # Качество
+            'beam_size': 5,
+            'beam_size_realtime': 3,
+            'initial_prompt': (
+                "Незаконченные мысли должны заканчиваться '...'. "
+                "Примеры законченных: 'Небо голубое.' 'Она пошла домой.' "
+                "Примеры незаконченных: 'Когда небо...' 'Потому что он...'"
+            ),
+            
+            # Настройки для контейнера
+            'use_microphone': False,
+            'spinner': False,
+            'no_log_file': True,
+            'level': logging.WARNING
+        }
+    
+    def recorder_thread(self, loop):
+        """Поток для recorder."""
+        try:
+            config = self.create_recorder_config(loop)
+            print(f"{Colors.GREEN}Создание AudioToTextRecorder...{Colors.ENDC}")
+            self.recorder = AudioToTextRecorder(**config)
+            print(f"{Colors.GREEN}Recorder инициализирован успешно{Colors.ENDC}")
+            self.recorder_ready.set()
+            
+            def process_text_wrapper(text):
+                self.process_final_text(text, loop)
+            
+            # Основной цикл обработки
+            while not self.stop_recorder:
+                self.recorder.text(process_text_wrapper)
+                
+        except Exception as e:
+            print(f"{Colors.RED}Ошибка в recorder thread: {e}{Colors.ENDC}")
+        finally:
+            print(f"{Colors.YELLOW}Recorder thread завершен{Colors.ENDC}")
+    
+    async def control_handler(self, websocket):
+        """Обработчик control WebSocket соединений."""
+        print(f"{Colors.GREEN}Control клиент подключен{Colors.ENDC}")
+        self.control_connections.add(websocket)
+        
+        try:
+            async for message in websocket:
+                if not self.recorder_ready.is_set():
+                    await websocket.send(json.dumps({
+                        "status": "error", 
+                        "message": "Recorder не готов"
+                    }))
+                    continue
+                    
+                try:
+                    command_data = json.loads(message)
+                    command = command_data.get("command")
+                    
+                    if command == "set_parameter":
+                        parameter = command_data.get("parameter")
+                        value = command_data.get("value")
+                        
+                        if parameter in self.allowed_parameters and hasattr(self.recorder, parameter):
+                            setattr(self.recorder, parameter, value)
+                            await websocket.send(json.dumps({
+                                "status": "success", 
+                                "message": f"Параметр {parameter} установлен в {value}"
+                            }))
+                        else:
+                            await websocket.send(json.dumps({
+                                "status": "error",
+                                "message": f"Параметр {parameter} недоступен"
+                            }))
+                            
+                    elif command == "get_parameter":
+                        parameter = command_data.get("parameter")
+                        if parameter in self.allowed_parameters and hasattr(self.recorder, parameter):
+                            value = getattr(self.recorder, parameter)
+                            await websocket.send(json.dumps({
+                                "status": "success",
+                                "parameter": parameter,
+                                "value": value
+                            }))
+                        else:
+                            await websocket.send(json.dumps({
+                                "status": "error",
+                                "message": f"Параметр {parameter} недоступен"
+                            }))
+                            
+                    else:
+                        await websocket.send(json.dumps({
+                            "status": "error",
+                            "message": f"Неизвестная команда: {command}"
+                        }))
+                        
+                except json.JSONDecodeError:
+                    await websocket.send(json.dumps({
+                        "status": "error",
+                        "message": "Неверный JSON"
+                    }))
+                    
+        except websockets.exceptions.ConnectionClosed:
+            print(f"{Colors.YELLOW}Control клиент отключился{Colors.ENDC}")
+        finally:
+            self.control_connections.remove(websocket)
+    
+    async def data_handler(self, websocket):
+        """Обработчик data WebSocket соединений."""
+        print(f"{Colors.GREEN}Data клиент подключен{Colors.ENDC}")
+        self.data_connections.add(websocket)
+        
+        try:
+            async for message in websocket:
+                if isinstance(message, bytes):
+                    # Парсим метаданные
+                    metadata_length = int.from_bytes(message[:4], byteorder='little')
+                    metadata_json = message[4:4+metadata_length].decode('utf-8')
+                    metadata = json.loads(metadata_json)
+                    sample_rate = metadata['sampleRate']
+                    
+                    # Извлекаем аудио данные
+                    chunk = message[4+metadata_length:]
+                    
+                    # Ресамплинг если нужно
+                    if sample_rate != 16000:
+                        chunk = self.decode_and_resample(chunk, sample_rate, 16000)
+                    
+                    # Отправляем в recorder
+                    if self.recorder and self.recorder_ready.is_set():
+                        self.recorder.feed_audio(chunk)
+                        
+        except websockets.exceptions.ConnectionClosed:
+            print(f"{Colors.YELLOW}Data клиент отключился{Colors.ENDC}")
+        finally:
+            self.data_connections.remove(websocket)
+            if self.recorder:
+                self.recorder.clear_audio_queue()
+    
+    def decode_and_resample(self, audio_data, original_sample_rate, target_sample_rate):
+        """Ресамплинг аудио."""
+        if original_sample_rate == target_sample_rate:
+            return audio_data
+            
+        audio_np = np.frombuffer(audio_data, dtype=np.int16)
+        num_original_samples = len(audio_np)
+        num_target_samples = int(num_original_samples * target_sample_rate / original_sample_rate)
+        resampled_audio = resample(audio_np, num_target_samples)
+        return np.array(resampled_audio, dtype=np.int16).tobytes()
+    
+    async def broadcast_audio_messages(self):
+        """Трансляция сообщений всем data клиентам."""
+        while True:
+            try:
+                message = await self.audio_queue.get()
+                if not self.data_connections:
+                    continue
+                    
+                for conn in list(self.data_connections):
+                    try:
+                        await conn.send(message)
+                    except websockets.exceptions.ConnectionClosed:
+                        self.data_connections.discard(conn)
+            except Exception as e:
+                print(f"{Colors.RED}Ошибка в broadcast: {e}{Colors.ENDC}")
+    
+    async def run(self):
+        """Запуск сервера."""
+        try:
+            # Получаем event loop
+            loop = asyncio.get_event_loop()
+            
+            # Запускаем WebSocket серверы
+            control_server = await websockets.serve(
+                self.control_handler, "0.0.0.0", self.args.control_port
+            )
+            data_server = await websockets.serve(
+                self.data_handler, "0.0.0.0", self.args.data_port
+            )
+            
+            print(f"{Colors.GREEN}Control сервер запущен на порту {self.args.control_port}{Colors.ENDC}")
+            print(f"{Colors.GREEN}Data сервер запущен на порту {self.args.data_port}{Colors.ENDC}")
+            
+            # Запускаем broadcast задачу
+            broadcast_task = asyncio.create_task(self.broadcast_audio_messages())
+            
+            # Запускаем recorder в отдельном потоке
+            recorder_thread = threading.Thread(target=self.recorder_thread, args=(loop,))
+            recorder_thread.start()
+            
+            # Ждем готовности recorder
+            self.recorder_ready.wait()
+            print(f"{Colors.GREEN}Сервер полностью готов к работе{Colors.ENDC}")
+            
+            # Ждем завершения
+            await asyncio.gather(
+                control_server.wait_closed(),
+                data_server.wait_closed(), 
+                broadcast_task
+            )
+            
+        except KeyboardInterrupt:
+            print(f"{Colors.YELLOW}Остановка сервера...{Colors.ENDC}")
+        except Exception as e:
+            print(f"{Colors.RED}Ошибка сервера: {e}{Colors.ENDC}")
+        finally:
+            await self.shutdown()
+    
+    async def shutdown(self):
+        """Корректное завершение работы."""
+        self.stop_recorder = True
+        if self.recorder:
+            self.recorder.abort()
+            self.recorder.stop()
+            self.recorder.shutdown()
+        print(f"{Colors.GREEN}Сервер остановлен{Colors.ENDC}")
+
+def parse_arguments():
+    """Парсинг аргументов командной строки."""
+    import argparse
+    parser = argparse.ArgumentParser(description='STT Server для Docker')
+    
+    parser.add_argument('-m', '--model', type=str, default='small',
+                       help='Модель Whisper (default: small)')
+    parser.add_argument('-l', '--language', type=str, default='ru',
+                       help='Язык (default: ru)')
+    parser.add_argument('-r', '--realtime_model_type', type=str, default='tiny',
+                       help='Модель для real-time (default: tiny)')
+    parser.add_argument('-c', '--control_port', type=int, default=8011,
+                       help='Порт для control WebSocket (default: 8011)')
+    parser.add_argument('-d', '--data_port', type=int, default=8012,
+                       help='Порт для data WebSocket (default: 8012)')
+    parser.add_argument('--device', type=str, default='cuda',
+                       help='Устройство: cuda или cpu (default: cuda)')
+    parser.add_argument('--enable_realtime_transcription', action='store_true', default=True,
+                       help='Включить real-time транскрипцию')
+    parser.add_argument('--silero_use_onnx', action='store_true', default=True,
+                       help='Использовать ONNX версию Silero')
+    
+    return parser.parse_args()
+
+async def main():
+    """Главная функция."""
+    args = parse_arguments()
+    server = STTServer(args)
+    await server.run()
+
+if __name__ == '__main__':
+    asyncio.run(main())

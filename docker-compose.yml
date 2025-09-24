@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  stt-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: realtime-stt-server
+    ports:
+      - "8011:8011"  # Control WebSocket port
+      - "8012:8012"  # Data WebSocket port
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - TORCH_HOME=/app/models
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Монтируем директорию для моделей (чтобы не скачивать каждый раз)
+      - ./models:/app/models
+      # Монтируем директорию для логов
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: [
+      "python3", "stt_server.py",
+      "--model", "small",
+      "--language", "ru", 
+      "--realtime_model_type", "tiny",
+      "--control_port", "8011",
+      "--data_port", "8012",
+      "--device", "cuda",
+      "--enable_realtime_transcription",
+      "--silero_use_onnx"
+    ]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('localhost', 8011), timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Опциональный сервис для мониторинга
+  # portainer:
+  #   image: portainer/portainer-ce:latest
+  #   container_name: portainer
+  #   restart: unless-stopped
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   volumes:
+  #     - /etc/localtime:/etc/localtime:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - ./portainer-data:/data
+  #   ports:
+  #     - 9000:9000
+
+networks:
+  default:
+    name: stt-network

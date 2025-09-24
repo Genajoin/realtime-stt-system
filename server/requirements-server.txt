@@ -1,0 +1,22 @@
+# Основные зависимости для RealtimeSTT сервера
+RealtimeSTT>=0.2.0
+faster-whisper>=1.1.0
+
+# WebSocket сервер
+websockets>=12.0
+
+# Аудио обработка
+PyAudio>=0.2.14
+soundfile>=0.13.0
+librosa>=0.10.0
+scipy>=1.10.0
+numpy>=1.24.0
+
+# VAD (Voice Activity Detection)
+webrtcvad-wheels>=2.0.14
+
+# Для цветного вывода
+colorama>=0.4.6
+
+# Утилиты
+tqdm>=4.65.0
