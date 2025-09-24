@@ -17,8 +17,16 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     ca-certificates \
+    gnupg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+# Добавляем NVIDIA репозиторий для cuDNN
+RUN wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub | apt-key add - \
+    && echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64 /" > /etc/apt/sources.list.d/cuda.list \
+    && apt-get update \
+    && apt-get install -y libcudnn8 libcudnn8-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # ═══════════════════════════════════════════════════════════════
 # Stage 2: PyTorch установка (большая, редко изменяется)
