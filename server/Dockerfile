@@ -19,6 +19,7 @@ RUN conda install -c conda-forge -y \
     portaudio \
     ffmpeg \
     pyaudio \
+    librosa \
     && conda clean -afy
 
 # ═══════════════════════════════════════════════════════════════
@@ -26,11 +27,10 @@ RUN conda install -c conda-forge -y \
 # ═══════════════════════════════════════════════════════════════
 FROM system-libs AS heavy-deps
 
-# Устанавливаем самые тяжелые Python зависимости отдельно
+# Устанавливаем тяжелые Python зависимости (librosa уже через conda)
 RUN pip3 install --no-cache-dir --no-compile \
     RealtimeSTT>=0.2.0 \
-    faster-whisper>=1.1.0 \
-    librosa>=0.10.0
+    faster-whisper>=1.1.0
 
 # ═══════════════════════════════════════════════════════════════
 # Stage 4: Остальные Python зависимости (легкие, могут меняться)
