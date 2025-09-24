@@ -1,10 +1,14 @@
-# Multi-stage Dockerfile для GPU с оптимальным кешированием
-# Stage 1: Базовый образ Ubuntu с системными зависимостями
-FROM ubuntu:22.04 AS base
+# Максимально оптимизированный multi-stage Dockerfile
+# Стейджи упорядочены по частоте изменений для лучшего кеширования
 
-# Устанавливаем системные зависимости (редко изменяются)
+# ═══════════════════════════════════════════════════════════════
+# Stage 1: Базовая система (изменяется крайне редко)
+# ═══════════════════════════════════════════════════════════════
+FROM ubuntu:22.04 AS system-base
+
+# Устанавливаем системные зависимости одним слоем
 RUN apt-get update && apt-get install -y \
-    python3 \
+    python3=3.10.* \
     python3-pip \
     python3-dev \
     portaudio19-dev \
@@ -12,45 +16,67 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     git \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Stage 2: Установка больших Python зависимостей
-FROM base AS python-deps
+# ═══════════════════════════════════════════════════════════════
+# Stage 2: PyTorch установка (большая, редко изменяется)
+# ═══════════════════════════════════════════════════════════════
+FROM system-base AS pytorch-stage
+
+# Устанавливаем только PyTorch с CUDA (самый большой компонент ~2GB)
+RUN pip3 install --no-cache-dir --no-compile \
+    torch==2.5.1+cu121 \
+    torchaudio==2.5.1 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# ═══════════════════════════════════════════════════════════════
+# Stage 3: Python зависимости приложения (средняя частота изменений)
+# ═══════════════════════════════════════════════════════════════
+FROM pytorch-stage AS app-deps
 
 WORKDIR /app
 
-# Копируем requirements и устанавливаем базовые зависимости (изменяются редко)
+# Копируем requirements и устанавливаем зависимости приложения
 COPY requirements-server.txt .
-RUN pip3 install --no-cache-dir -r requirements-server.txt
+RUN pip3 install --no-cache-dir --no-compile -r requirements-server.txt
 
-# Устанавливаем PyTorch с CUDA поддержкой (самая большая зависимость)
-RUN pip3 install --no-cache-dir torch==2.5.1+cu121 torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu121
+# ═══════════════════════════════════════════════════════════════
+# Stage 4: Конфигурация окружения (редко изменяется)
+# ═══════════════════════════════════════════════════════════════
+FROM app-deps AS runtime-config
 
-# Stage 3: Production образ с кодом приложения
-FROM python-deps AS production
-
-# Создаем директории для моделей и логов
-RUN mkdir -p /app/models /app/logs
+# Создаем директории и настраиваем окружение
+RUN mkdir -p /app/models /app/logs /app/cache
 
 # Настраиваем переменные окружения
-ENV PYTHONUNBUFFERED=1
-ENV CUDA_VISIBLE_DEVICES=0
-ENV TORCH_HOME=/app/models
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CUDA_VISIBLE_DEVICES=0 \
+    TORCH_HOME=/app/models \
+    HF_HOME=/app/cache \
+    TRANSFORMERS_CACHE=/app/cache \
+    PIP_NO_CACHE_DIR=1
 
-# Копируем код приложения (изменяется часто - поэтому в конце)
+# ═══════════════════════════════════════════════════════════════
+# Stage 5: Код приложения (изменяется часто - финальный слой)
+# ═══════════════════════════════════════════════════════════════
+FROM runtime-config AS production
+
+# Копируем код приложения (самый часто изменяемый слой)
 COPY stt_server.py .
 COPY install_packages.py .
 
 # Открываем порты для WebSocket соединений
 EXPOSE 8011 8012
 
-# Проверка готовности
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python3 -c "import socket; socket.create_connection(('localhost', 8011), timeout=5)" || exit 1
+# Проверка готовности с увеличенным timeout для GPU инициализации
+HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
+    CMD python3 -c "import socket; socket.create_connection(('localhost', 8011), timeout=10)" || exit 1
 
-# Команда по умолчанию с GPU поддержкой
-CMD ["python3", "stt_server.py", \
+# Команда по умолчанию с оптимальными параметрами для GPU
+CMD ["python3", "-u", "stt_server.py", \
      "--model", "small", \
      "--language", "ru", \
      "--realtime_model_type", "tiny", \

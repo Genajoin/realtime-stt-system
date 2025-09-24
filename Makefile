@@ -370,3 +370,19 @@ remote-logs:
 remote-status:
 	@echo "$(BLUE)📊 Статус на удаленном сервере:$(NC)"
 	ssh genaminipc.awg "cd realtime-stt-system && docker compose ps && echo && docker stats --no-stream"
+
+docker-build-verbose:
+	@echo "$(BLUE)🐳 Подробная сборка Docker образа с анализом кеширования...$(NC)"
+	docker compose build --progress=plain --no-cache
+
+docker-cache-info:
+	@echo "$(BLUE)📊 Информация о Docker кеше:$(NC)"
+	docker system df
+	@echo ""
+	@echo "$(BLUE)🔍 Docker образы:$(NC)"
+	docker images | grep realtime-stt
+
+docker-optimize:
+	@echo "$(YELLOW)🧹 Очистка неиспользуемого кеша...$(NC)"
+	docker system prune -f
+	docker builder prune -f
