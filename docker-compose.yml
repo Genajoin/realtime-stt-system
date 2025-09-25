@@ -7,23 +7,29 @@ services:
     ports:
       - "8011:8011"  # Control WebSocket port
       - "8012:8012"  # Data WebSocket port
+    env_file:
+      - .env
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - CUDA_VISIBLE_DEVICES=0
+      # - NVIDIA_VISIBLE_DEVICES=all
+      # - CUDA_VISIBLE_DEVICES=0
       - TORCH_HOME=/app/models
+      - HF_HOME=/app/cache
+      - TRANSFORMERS_CACHE=/app/cache
       - PYTHONUNBUFFERED=1
     volumes:
       # Монтируем директорию для моделей (чтобы не скачивать каждый раз)
       - ./models:/app/models
+      # Монтируем директорию для кеша HuggingFace и других моделей
+      - ./cache:/app/cache
       # Монтируем директорию для логов
       - ./logs:/app/logs
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('localhost', 8011), timeout=5)"]

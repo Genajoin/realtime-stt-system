@@ -16,6 +16,7 @@ import threading
 from datetime import datetime
 from collections import deque
 import base64
+from env_config import env_config
 
 # Проверяем наличие зависимостей
 try:
@@ -116,33 +117,29 @@ class STTServer:
     def create_recorder_config(self, loop):
         """Создание конфигурации для recorder."""
         return {
-            'model': self.args.model,
-            'language': self.args.language,
-            'realtime_model_type': self.args.realtime_model_type,
-            'device': self.args.device,
+            'model': env_config.get('model'),
+            'language': env_config.get('language'),
+            'realtime_model_type': env_config.get('realtime_model_type'),
+            'device': env_config.get('device'),
             'compute_type': 'default',
             
             # Real-time настройки
-            'enable_realtime_transcription': self.args.enable_realtime_transcription,
-            'realtime_processing_pause': 0.02,
+            'enable_realtime_transcription': env_config.get('enable_realtime_transcription'),
+            'realtime_processing_pause': env_config.get('realtime_processing_pause'),
             'on_realtime_transcription_update': lambda text: self.text_detected(text, loop),
             
             # VAD настройки
-            'silero_sensitivity': 0.05,
-            'silero_use_onnx': self.args.silero_use_onnx,
-            'webrtc_sensitivity': 3,
-            'post_speech_silence_duration': 0.7,
-            'min_length_of_recording': 1.1,
+            'silero_sensitivity': env_config.get('silero_sensitivity'),
+            'silero_use_onnx': env_config.get('silero_use_onnx'),
+            'webrtc_sensitivity': env_config.get('webrtc_sensitivity'),
+            'post_speech_silence_duration': env_config.get('post_speech_silence_duration'),
+            'min_length_of_recording': env_config.get('min_length_of_recording'),
             'silero_deactivity_detection': True,
             
             # Качество
-            'beam_size': 5,
-            'beam_size_realtime': 3,
-            'initial_prompt': (
-                "Незаконченные мысли должны заканчиваться '...'. "
-                "Примеры законченных: 'Небо голубое.' 'Она пошла домой.' "
-                "Примеры незаконченных: 'Когда небо...' 'Потому что он...'"
-            ),
+            'beam_size': env_config.get('beam_size'),
+            'beam_size_realtime': env_config.get('beam_size_realtime'),
+            'initial_prompt': env_config.get('initial_prompt'),
             
             # Настройки для контейнера
             'use_microphone': False,
@@ -305,14 +302,14 @@ class STTServer:
             
             # Запускаем WebSocket серверы
             control_server = await websockets.serve(
-                self.control_handler, "0.0.0.0", self.args.control_port
+                self.control_handler, "0.0.0.0", env_config.get('control_port')
             )
             data_server = await websockets.serve(
-                self.data_handler, "0.0.0.0", self.args.data_port
+                self.data_handler, "0.0.0.0", env_config.get('data_port')
             )
             
-            print(f"{Colors.GREEN}Control сервер запущен на порту {self.args.control_port}{Colors.ENDC}")
-            print(f"{Colors.GREEN}Data сервер запущен на порту {self.args.data_port}{Colors.ENDC}")
+            print(f"{Colors.GREEN}Control сервер запущен на порту {env_config.get('control_port')}{Colors.ENDC}")
+            print(f"{Colors.GREEN}Data сервер запущен на порту {env_config.get('data_port')}{Colors.ENDC}")
             
             # Запускаем broadcast задачу
             broadcast_task = asyncio.create_task(self.broadcast_audio_messages())
@@ -353,24 +350,45 @@ def parse_arguments():
     import argparse
     parser = argparse.ArgumentParser(description='STT Server для Docker')
     
-    parser.add_argument('-m', '--model', type=str, default='small',
-                       help='Модель Whisper (default: small)')
-    parser.add_argument('-l', '--language', type=str, default='ru',
-                       help='Язык (default: ru)')
-    parser.add_argument('-r', '--realtime_model_type', type=str, default='tiny',
-                       help='Модель для real-time (default: tiny)')
-    parser.add_argument('-c', '--control_port', type=int, default=8011,
-                       help='Порт для control WebSocket (default: 8011)')
-    parser.add_argument('-d', '--data_port', type=int, default=8012,
-                       help='Порт для data WebSocket (default: 8012)')
-    parser.add_argument('--device', type=str, default='cuda',
-                       help='Устройство: cuda или cpu (default: cuda)')
-    parser.add_argument('--enable_realtime_transcription', action='store_true', default=True,
+    # Аргументы командной строки имеют приоритет над переменными окружения
+    parser.add_argument('-m', '--model', type=str,
+                       help='Модель Whisper (default: из .env)')
+    parser.add_argument('-l', '--language', type=str,
+                       help='Язык (default: из .env)')
+    parser.add_argument('-r', '--realtime_model_type', type=str,
+                       help='Модель для real-time (default: из .env)')
+    parser.add_argument('-c', '--control_port', type=int,
+                       help='Порт для control WebSocket (default: из .env)')
+    parser.add_argument('-d', '--data_port', type=int,
+                       help='Порт для data WebSocket (default: из .env)')
+    parser.add_argument('--device', type=str,
+                       help='Устройство: cuda или cpu (default: из .env)')
+    parser.add_argument('--enable_realtime_transcription', action='store_true',
                        help='Включить real-time транскрипцию')
-    parser.add_argument('--silero_use_onnx', action='store_true', default=True,
+    parser.add_argument('--silero_use_onnx', action='store_true',
                        help='Использовать ONNX версию Silero')
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    # Если аргументы не указаны, используем значения из .env
+    if args.model is None:
+        args.model = env_config.get('model')
+    if args.language is None:
+        args.language = env_config.get('language')
+    if args.realtime_model_type is None:
+        args.realtime_model_type = env_config.get('realtime_model_type')
+    if args.control_port is None:
+        args.control_port = env_config.get('control_port')
+    if args.data_port is None:
+        args.data_port = env_config.get('data_port')
+    if args.device is None:
+        args.device = env_config.get('device')
+    if args.enable_realtime_transcription is None:
+        args.enable_realtime_transcription = env_config.get('enable_realtime_transcription')
+    if args.silero_use_onnx is None:
+        args.silero_use_onnx = env_config.get('silero_use_onnx')
+    
+    return args
 
 async def main():
     """Главная функция."""
