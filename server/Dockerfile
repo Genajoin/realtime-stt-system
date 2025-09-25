@@ -18,6 +18,7 @@ WORKDIR /app
 FROM pytorch-base AS system-libs
 
 # Создаем символические ссылки для cuDNN библиотек, которые ищет приложение
+# и добавляем путь к cuDNN в LD_LIBRARY_PATH
 RUN cd /opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib && \
     for lib in libcudnn*.so.9; do \
         base_name=$(echo "$lib" | sed 's/\.so\.9$//'); \
@@ -25,6 +26,7 @@ RUN cd /opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib && \
         ln -sf "$lib" "${base_name}.so.9.1"; \
         ln -sf "$lib" "${base_name}.so"; \
     done && \
+    echo "/opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib" > /etc/ld.so.conf.d/cudnn.conf && \
     ldconfig
 
 # Устанавливаем системные зависимости через conda
@@ -71,7 +73,8 @@ ENV PYTHONUNBUFFERED=1 \
     TORCH_HOME=/app/models \
     HF_HOME=/app/cache \
     TRANSFORMERS_CACHE=/app/cache \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    LD_LIBRARY_PATH="/opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
 
 # ═══════════════════════════════════════════════════════════════
 # Stage 6: Код приложения (~50KB, изменяется часто)
