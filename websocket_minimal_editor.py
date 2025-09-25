@@ -126,15 +126,15 @@ class StatusBar:
         stt_client = getattr(self.editor, 'stt_client', None)
         if stt_client and stt_client.is_connected:
             if getattr(stt_client, 'is_paused', False):
-                f1_text = 'F1:Resume'
+                f5_text = 'F5:Resume'
             elif stt_client.is_recording:
-                f1_text = 'F1:Pause'
+                f5_text = 'F5:Pause'
             else:
-                f1_text = 'F1:Start'
+                f5_text = 'F5:Start'
         else:
-            f1_text = 'F1:Record'
+            f5_text = 'F5:Record'
 
-        items.append(('', f'{f1_text} F3:Copy F8:Clear Ctrl+C:Exit'))
+        items.append(('', f'{f5_text} F3:Copy F8:Clear'))
 
         # Индикатор копирования (показывается 1.5 секунды)
         current_time = time.time()
@@ -439,7 +439,9 @@ class MinimalSTTEditor:
 
         # UI компоненты
         self.buffer_control = BufferControl(
-            buffer=self.buffer
+            buffer=self.buffer,
+            focusable=True,
+            include_default_input_processors=True
         )
 
         # Главное окно редактора БЕЗ РАМОК
@@ -486,7 +488,7 @@ class MinimalSTTEditor:
             style=self.style,
             full_screen=True,
             mouse_support=True,  # Поддержка мыши
-            refresh_interval=0.2,  # Обновление для статус бара
+            refresh_interval=0.1,  # Увеличили частоту для лучшего отслеживания выделения
             on_invalidate=self.on_app_invalidate  # Обработчик обновлений
         )
 
@@ -494,8 +496,8 @@ class MinimalSTTEditor:
         """Создание клавиатурных привязок"""
         kb = KeyBindings()
 
-        # F1 - Переключить паузу/возобновление STT
-        @kb.add('f1')
+        # F5 - Переключить паузу/возобновление STT
+        @kb.add('f5')
         def toggle_pause(event):
             asyncio.create_task(self.toggle_recording_pause())
 
@@ -521,6 +523,7 @@ class MinimalSTTEditor:
         @kb.add('c-q')
         def exit_editor(event):
             event.app.exit()
+
 
         return kb
 
@@ -648,7 +651,7 @@ class MinimalSTTEditor:
             print("============================")
             print(connection_status)
             print("\nГорячие клавиши:")
-            print("F1 - Пауза/возобновление STT (запись начинается автоматически)")
+            print("F5 - Пауза/возобновление STT (запись начинается автоматически)")
             print("F3 - Копировать весь текст")
             print("Ctrl+C - Выход")
             print("Ctrl+A - Выделить все")
