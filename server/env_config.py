@@ -22,7 +22,7 @@ class EnvConfig:
         return {
             # Основные параметры модели
             "model": self._get_env("WHISPER_MODEL", "medium"),  # Модель Whisper
-            "language": self._get_env("LANGUAGE", "ru"),  # Язык распознавания
+            "language": self._get_env_optional("LANGUAGE", None),  # Автоопределение языка как в micPy проекте
             "realtime_model_type": self._get_env("REALTIME_MODEL_TYPE", "tiny"),  # Модель для real-time
             "device": self._get_env("DEVICE", "cuda"),  # Устройство вычислений
             
@@ -36,16 +36,17 @@ class EnvConfig:
             "post_speech_silence_duration": self._get_env_float("POST_SPEECH_SILENCE_DURATION", 0.7),
             "min_length_of_recording": self._get_env_float("MIN_LENGTH_OF_RECORDING", 1.1),
             
-            # Настройки качества распознавания
-            "beam_size": self._get_env_int("BEAM_SIZE", 5),  # Для полной транскрипции
-            "beam_size_realtime": self._get_env_int("BEAM_SIZE_REALTIME", 3),  # Для real-time
+            # Настройки качества распознавания (увеличены для лучшей мультиязычности)
+            "beam_size": self._get_env_int("BEAM_SIZE", 10),  # Увеличено для лучшего выбора вариантов
+            "beam_size_realtime": self._get_env_int("BEAM_SIZE_REALTIME", 5),  # Увеличено для real-time
             "realtime_processing_pause": self._get_env_float("REALTIME_PROCESSING_PAUSE", 0.02),
             
-            # Промпт для улучшения качества
+            # Промпт для улучшения качества (IT-ориентированный)
             "initial_prompt": self._get_env("INITIAL_PROMPT", 
-                "Незаконченные мысли должны заканчиваться '...'. "
-                "Примеры законченных: 'Небо голубое.' 'Она пошла домой.' "
-                "Примеры незаконченных: 'Когда небо...' 'Потому что он...'"
+                "Текст содержит технические термины на английском в русской речи. "
+                "IT термины: git push, commit, debug, deploy, server, API, frontend, backend, "
+                "Docker, микросервисы, фреймворк, библиотека, код, реакт, веб-разработка. "
+                "Незаконченные мысли: '...'. Примеры: 'Делаю коммит кода', 'Запускаю тесты сервера'."
             ),
             
             # Сетевые порты
@@ -93,6 +94,13 @@ class EnvConfig:
         else:
             print(f"Предупреждение: Неверное значение для {key}, используется значение по умолчанию: {default}")
             return default
+    
+    def _get_env_optional(self, key: str, default=None):
+        """Получение опционального значения из переменной окружения."""
+        value = os.getenv(key)
+        if value is None or value.lower() in ('none', 'null', 'auto'):
+            return default
+        return value
     
     def get(self, key: str, default=None):
         """Получение значения параметра."""

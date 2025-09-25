@@ -25,7 +25,7 @@ STT сервер использует переменные окружения д
 | Переменная | Значение по умолчанию | Описание |
 |------------|----------------------|----------|
 | `WHISPER_MODEL` | `medium` | Модель Whisper: tiny, base, small, medium, large |
-| `LANGUAGE` | `ru` | Язык распознавания: ru, en, etc. |
+| `LANGUAGE` | `auto` | Язык распознавания: auto (автоопределение), ru, en, etc. |
 | `REALTIME_MODEL_TYPE` | `tiny` | Модель для real-time: tiny, base, small |
 | `DEVICE` | `cuda` | Устройство вычислений: cuda, cpu |
 
@@ -49,8 +49,8 @@ STT сервер использует переменные окружения д
 
 | Переменная | Значение по умолчанию | Описание |
 |------------|----------------------|----------|
-| `BEAM_SIZE` | `5` | Размер beam search для полной транскрипции |
-| `BEAM_SIZE_REALTIME` | `3` | Размер beam search для real-time |
+| `BEAM_SIZE` | `10` | Размер beam search для полной транскрипции (увеличен для мультиязычности) |
+| `BEAM_SIZE_REALTIME` | `5` | Размер beam search для real-time (увеличен для мультиязычности) |
 | `REALTIME_PROCESSING_PAUSE` | `0.02` | Пауза между обработкой real-time (сек) |
 | `INITIAL_PROMPT` | См. .env.example | Начальный промпт для модели |
 
@@ -90,12 +90,13 @@ BEAM_SIZE_REALTIME=1
 DEVICE=cuda
 ```
 
-### Максимальное качество
+### Максимальное качество с мультиязычностью
 ```env
 WHISPER_MODEL=large
 REALTIME_MODEL_TYPE=base
-BEAM_SIZE=10
-BEAM_SIZE_REALTIME=5
+LANGUAGE=auto
+BEAM_SIZE=15
+BEAM_SIZE_REALTIME=8
 SILERO_SENSITIVITY=0.03
 ```
 
