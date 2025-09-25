@@ -11,7 +11,7 @@ YELLOW := \033[0;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help run-websocket-client run-minimal-editor docker-build docker-run docker-stop docker-logs docker-status deploy remote-logs remote-status clean
+.PHONY: help run-minimal-editor docker-build docker-run docker-stop docker-logs docker-status deploy remote-logs remote-status clean
 
 # Помощь (команда по умолчанию)
 help:
@@ -20,7 +20,6 @@ help:
 	@echo "$(BLUE)╚════════════════════════════════════════════════╝$(NC)"
 	@echo ""
 	@echo "$(GREEN)Клиент команды:$(NC)"
-	@echo "  $(YELLOW)make run-websocket-client$(NC)     - Запуск обычного WebSocket клиента"
 	@echo "  $(YELLOW)make run-minimal-editor$(NC)       - Минималистичный STT редактор без рамок"
 	@echo ""
 	@echo "$(GREEN)Docker команды:$(NC)"
@@ -41,13 +40,6 @@ help:
 # ════════════════════════════════════════════════════════════════
 # Клиент команды
 # ════════════════════════════════════════════════════════════════
-
-run-websocket-client:
-	@echo "$(GREEN)🌐 Запуск WebSocket клиента для удаленного сервера...$(NC)"
-	@echo "$(BLUE)Подключение к серверу: genaminipc.awg$(NC)"
-	@$(PYTHON) websocket_rich_client.py --server genaminipc.awg
-
-
 
 run-minimal-editor:
 	@echo "$(GREEN)✏️  Запуск минималистичного STT редактора...$(NC)"

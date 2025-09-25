@@ -30,9 +30,7 @@ This is a real-time speech-to-text (STT) system with client-server WebSocket arc
 - `requirements-server.txt`: Server Python dependencies
 
 ### Clients (root directory)
-- `websocket_rich_client.py`: Standard terminal client with Rich UI
-- `websocket_editable_client.py`: Advanced editable client with live transcription editing
-- `websocket_simple_editable_client.py`: Simplified editable client (stable version)
+- `websocket_minimal_editor.py`: Minimal terminal editor without borders
 - `transcription_editor.py`: GUI editor with tkinter
 - `start_editor.py`: Auto-configuring GUI launcher
 

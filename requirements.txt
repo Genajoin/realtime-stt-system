@@ -1,6 +1,5 @@
 # Клиент зависимости для WebSocket STT
 websockets>=11.0
 pyaudio>=0.2.11
-rich>=13.0
 pyperclip>=1.8
 prompt_toolkit>=3.0.0

@@ -249,7 +249,7 @@ class TranscriptionEditor:
             
             # Обновление статуса в главном потоке
             self.root.after(0, lambda: self.status_label.config(
-                text="Готов - запустите rich клиент", fg="green"
+                text="Готов - запустите минималистичный редактор", fg="green"
             ))
             
             # Подключение к потоку данных
