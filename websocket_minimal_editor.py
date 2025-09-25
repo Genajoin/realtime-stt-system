@@ -20,6 +20,7 @@ import sys
 import time
 import struct
 import contextlib
+import subprocess
 from typing import Optional, Callable, List, Tuple
 from datetime import datetime
 
@@ -69,6 +70,36 @@ def load_env_file():
 
 # Загружаем переменные окружения
 load_env_file()
+
+
+def play_sound(sound_type):
+    """
+    Воспроизводит системные звуки через canberra-gtk-play.
+    sound_type: 'start' для начала записи, 'end' для окончания распознавания
+    """
+    sound_name = 'bell' if sound_type == 'start' else 'message'
+    
+    try:
+        result = subprocess.run(
+            ['canberra-gtk-play', '-i', sound_name],
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL,
+            timeout=2
+        )
+        if result.returncode == 0:
+            pass  # Звук воспроизведен успешно
+        else:
+            # Fallback на терминальный bell если canberra не сработал
+            print('\a', end='', flush=True)
+    except subprocess.TimeoutExpired:
+        # Fallback при таймауте
+        print('\a', end='', flush=True)
+    except Exception:
+        # Fallback при любой ошибке
+        try:
+            print('\a', end='', flush=True)
+        except:
+            pass
 
 
 class ClipboardManager:
@@ -675,6 +706,8 @@ class MinimalSTTEditor:
             # Автоматическое копирование в буфер обмена
             if self.clipboard_manager.copy_text(text):
                 self.status_bar.show_copy_indicator()
+                # Звуковой сигнал окончания распознавания
+                play_sound('end')
 
             # Принудительная перерисовка буфера
             self.app.invalidate()
