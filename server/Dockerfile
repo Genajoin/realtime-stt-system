@@ -90,9 +90,9 @@ COPY install_packages.py .
 # Открываем порты для WebSocket соединений
 EXPOSE 8011 8012
 
-# Проверка готовности с увеличенным timeout для GPU инициализации
-HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
-    CMD python3 -c "import socket; socket.create_connection(('localhost', 8011), timeout=10)" || exit 1
+# Healthcheck отключен для избежания ошибок WebSocket
+# HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
+#     CMD python3 -c "import socket; socket.create_connection(('localhost', 8011), timeout=10)" || exit 1
 
 # Команда по умолчанию с параметрами из переменных окружения
 CMD ["python3", "-u", "stt_server.py"]

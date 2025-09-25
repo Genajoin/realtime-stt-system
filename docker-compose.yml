@@ -31,12 +31,12 @@ services:
     #           count: 1
     #           capabilities: [gpu]
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import socket; s = socket.socket(); s.settimeout(5); result = s.connect_ex(('localhost', 8011)); s.close(); exit(0 if result == 0 else 1)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s  # Увеличен для загрузки CUDA моделей
+    # healthcheck:
+    #   test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('localhost', 8011), timeout=5)"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 120s  # Увеличен для загрузки CUDA моделей
 
 # Опциональный сервис для мониторинга
   # portainer:

@@ -18,6 +18,13 @@ from collections import deque
 import base64
 from env_config import env_config
 
+# Настройка логирования для Docker
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s'
+)
+logger = logging.getLogger('STTServer')
+
 # Проверяем наличие зависимостей
 try:
     import numpy as np
@@ -71,7 +78,66 @@ class STTServer:
             'is_recording', 'use_wake_words'
         ]
         
-        print(f"{Colors.CYAN}Инициализация STT сервера...{Colors.ENDC}")
+        logger.info("Инициализация STT сервера...")
+        self.log_configuration()
+        
+    def log_configuration(self):
+        """Подробное логирование конфигурации сервера."""
+        logger.info("STT SERVER CONFIGURATION")
+        logger.info("=" * 50)
+        
+        # Основные параметры модели
+        logger.info("MODEL SETTINGS:")
+        logger.info(f"  Whisper Model: {env_config.get('model')}")
+        logger.info(f"  Language: {env_config.get('language')}")
+        logger.info(f"  Real-time Model: {env_config.get('realtime_model_type')}")
+        logger.info(f"  Device: {env_config.get('device')}")
+        
+        # Сетевые параметры
+        logger.info("NETWORK SETTINGS:")
+        logger.info(f"  Control Port: {env_config.get('control_port')}")
+        logger.info(f"  Data Port: {env_config.get('data_port')}")
+        
+        # Настройки транскрипции
+        logger.info("TRANSCRIPTION SETTINGS:")
+        realtime_status = "Enabled" if env_config.get('enable_realtime_transcription') else "Disabled"
+        logger.info(f"  Real-time Transcription: {realtime_status}")
+        onnx_status = "Enabled" if env_config.get('silero_use_onnx') else "Disabled"
+        logger.info(f"  Silero ONNX: {onnx_status}")
+        logger.info(f"  Real-time Pause: {env_config.get('realtime_processing_pause')}s")
+        
+        # Настройки VAD
+        logger.info("VAD SETTINGS:")
+        logger.info(f"  Silero Sensitivity: {env_config.get('silero_sensitivity')}")
+        logger.info(f"  WebRTC Sensitivity: {env_config.get('webrtc_sensitivity')}")
+        logger.info(f"  Post Speech Silence: {env_config.get('post_speech_silence_duration')}s")
+        logger.info(f"  Min Recording Length: {env_config.get('min_length_of_recording')}s")
+        
+        # Настройки качества
+        logger.info("QUALITY SETTINGS:")
+        logger.info(f"  Beam Size: {env_config.get('beam_size')}")
+        logger.info(f"  Beam Size (Real-time): {env_config.get('beam_size_realtime')}")
+        initial_prompt = env_config.get('initial_prompt')
+        prompt_preview = initial_prompt[:40] + "..." if len(initial_prompt) > 40 else initial_prompt
+        logger.info(f"  Initial Prompt: {prompt_preview}")
+        
+        logger.info("=" * 50)
+        
+    def log_recorder_config(self, config):
+        """Логирование конфигурации recorder'а."""
+        logger.info("AUDIORECORDER CONFIG:")
+        logger.info(f"  Model: {config['model']}")
+        logger.info(f"  Language: {config['language']}")
+        logger.info(f"  Real-time Model: {config['realtime_model_type']}")
+        logger.info(f"  Device: {config['device']}")
+        logger.info(f"  Compute Type: {config['compute_type']}")
+        logger.info(f"  Real-time Transcription: {config['enable_realtime_transcription']}")
+        logger.info(f"  Silero ONNX: {config['silero_use_onnx']}")
+        logger.info(f"  Silero Sensitivity: {config['silero_sensitivity']}")
+        logger.info(f"  WebRTC Sensitivity: {config['webrtc_sensitivity']}")
+        logger.info(f"  Beam Size: {config['beam_size']}")
+        logger.info(f"  Beam Size (Real-time): {config['beam_size_realtime']}")
+        logger.info("-" * 40)
         
     def preprocess_text(self, text):
         """Предобработка текста."""
@@ -152,9 +218,10 @@ class STTServer:
         """Поток для recorder."""
         try:
             config = self.create_recorder_config(loop)
-            print(f"{Colors.GREEN}Создание AudioToTextRecorder...{Colors.ENDC}")
+            self.log_recorder_config(config)
+            logger.info("Creating AudioToTextRecorder...")
             self.recorder = AudioToTextRecorder(**config)
-            print(f"{Colors.GREEN}Recorder инициализирован успешно{Colors.ENDC}")
+            logger.info("Recorder initialized successfully")
             self.recorder_ready.set()
             
             def process_text_wrapper(text):
@@ -165,13 +232,13 @@ class STTServer:
                 self.recorder.text(process_text_wrapper)
                 
         except Exception as e:
-            print(f"{Colors.RED}Ошибка в recorder thread: {e}{Colors.ENDC}")
+            logger.error(f"Error in recorder thread: {e}")
         finally:
-            print(f"{Colors.YELLOW}Recorder thread завершен{Colors.ENDC}")
+            logger.info("Recorder thread finished")
     
     async def control_handler(self, websocket):
         """Обработчик control WebSocket соединений."""
-        print(f"{Colors.GREEN}Control клиент подключен{Colors.ENDC}")
+        logger.info("Control client connected")
         self.control_connections.add(websocket)
         
         try:
@@ -231,13 +298,13 @@ class STTServer:
                     }))
                     
         except websockets.exceptions.ConnectionClosed:
-            print(f"{Colors.YELLOW}Control клиент отключился{Colors.ENDC}")
+            logger.info("Control client disconnected")
         finally:
             self.control_connections.remove(websocket)
     
     async def data_handler(self, websocket):
         """Обработчик data WebSocket соединений."""
-        print(f"{Colors.GREEN}Data клиент подключен{Colors.ENDC}")
+        logger.info("Data client connected")
         self.data_connections.add(websocket)
         
         try:
@@ -261,7 +328,7 @@ class STTServer:
                         self.recorder.feed_audio(chunk)
                         
         except websockets.exceptions.ConnectionClosed:
-            print(f"{Colors.YELLOW}Data клиент отключился{Colors.ENDC}")
+            logger.info("Data client disconnected")
         finally:
             self.data_connections.remove(websocket)
             if self.recorder:
@@ -292,7 +359,7 @@ class STTServer:
                     except websockets.exceptions.ConnectionClosed:
                         self.data_connections.discard(conn)
             except Exception as e:
-                print(f"{Colors.RED}Ошибка в broadcast: {e}{Colors.ENDC}")
+                logger.error(f"Error in broadcast: {e}")
     
     async def run(self):
         """Запуск сервера."""
@@ -308,8 +375,8 @@ class STTServer:
                 self.data_handler, "0.0.0.0", env_config.get('data_port')
             )
             
-            print(f"{Colors.GREEN}Control сервер запущен на порту {env_config.get('control_port')}{Colors.ENDC}")
-            print(f"{Colors.GREEN}Data сервер запущен на порту {env_config.get('data_port')}{Colors.ENDC}")
+            logger.info(f"Control WebSocket server started on port {env_config.get('control_port')}")
+            logger.info(f"Data WebSocket server started on port {env_config.get('data_port')}")
             
             # Запускаем broadcast задачу
             broadcast_task = asyncio.create_task(self.broadcast_audio_messages())
@@ -320,7 +387,7 @@ class STTServer:
             
             # Ждем готовности recorder
             self.recorder_ready.wait()
-            print(f"{Colors.GREEN}Сервер полностью готов к работе{Colors.ENDC}")
+            logger.info("STT Server is ready for connections!")
             
             # Ждем завершения
             await asyncio.gather(
