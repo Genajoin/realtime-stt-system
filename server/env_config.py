@@ -13,39 +13,44 @@ class EnvConfig:
         self.config = self._load_config()
     
     def _load_config(self) -> Dict[str, Any]:
-        """Загрузка конфигурации из переменных окружения."""
+        """
+        Загрузка конфигурации из переменных окружения.
+        
+        Все значения имеют разумные значения по умолчанию,
+        соответствующие .env.example, поэтому .env файл не обязателен.
+        """
         return {
-            # Модель и язык
-            "model": self._get_env("WHISPER_MODEL", "small"),
-            "language": self._get_env("LANGUAGE", "ru"),
-            "realtime_model_type": self._get_env("REALTIME_MODEL_TYPE", "tiny"),
-            "device": self._get_env("DEVICE", "cuda"),
+            # Основные параметры модели
+            "model": self._get_env("WHISPER_MODEL", "medium"),  # Модель Whisper
+            "language": self._get_env("LANGUAGE", "ru"),  # Язык распознавания
+            "realtime_model_type": self._get_env("REALTIME_MODEL_TYPE", "tiny"),  # Модель для real-time
+            "device": self._get_env("DEVICE", "cuda"),  # Устройство вычислений
             
             # Настройки транскрипции
             "enable_realtime_transcription": self._get_env_bool("ENABLE_REALTIME_TRANSCRIPTION", True),
             "silero_use_onnx": self._get_env_bool("SILERO_USE_ONNX", True),
             
-            # VAD настройки
-            "silero_sensitivity": self._get_env_float("SILERO_SENSITIVITY", 0.05),
-            "webrtc_sensitivity": self._get_env_int("WEBRTC_SENSITIVITY", 3),
+            # Настройки VAD (Voice Activity Detection)
+            "silero_sensitivity": self._get_env_float("SILERO_SENSITIVITY", 0.05),  # 0.0-1.0
+            "webrtc_sensitivity": self._get_env_int("WEBRTC_SENSITIVITY", 3),  # 1-4
             "post_speech_silence_duration": self._get_env_float("POST_SPEECH_SILENCE_DURATION", 0.7),
             "min_length_of_recording": self._get_env_float("MIN_LENGTH_OF_RECORDING", 1.1),
             
-            # Beam search настройки
-            "beam_size": self._get_env_int("BEAM_SIZE", 5),
-            "beam_size_realtime": self._get_env_int("BEAM_SIZE_REALTIME", 3),
+            # Настройки качества распознавания
+            "beam_size": self._get_env_int("BEAM_SIZE", 5),  # Для полной транскрипции
+            "beam_size_realtime": self._get_env_int("BEAM_SIZE_REALTIME", 3),  # Для real-time
             "realtime_processing_pause": self._get_env_float("REALTIME_PROCESSING_PAUSE", 0.02),
             
-            # Промпт
+            # Промпт для улучшения качества
             "initial_prompt": self._get_env("INITIAL_PROMPT", 
                 "Незаконченные мысли должны заканчиваться '...'. "
                 "Примеры законченных: 'Небо голубое.' 'Она пошла домой.' "
                 "Примеры незаконченных: 'Когда небо...' 'Потому что он...'"
             ),
             
-            # Порты
-            "control_port": self._get_env_int("CONTROL_PORT", 8011),
-            "data_port": self._get_env_int("DATA_PORT", 8012),
+            # Сетевые порты
+            "control_port": self._get_env_int("CONTROL_PORT", 8011),  # Порт управления
+            "data_port": self._get_env_int("DATA_PORT", 8012),  # Порт данных
         }
     
     def _get_env(self, key: str, default: str) -> str:
