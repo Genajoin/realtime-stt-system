@@ -5,15 +5,30 @@
 ## 🏗️ Архитектура
 
 ```
-┌─────────────────┐    WebSocket    ┌─────────────────────────┐
-│   Rich Client   │ ──────────────► │   Docker GPU Server    │
-│   (локально)    │    8011/8012    │     (genaminipc.awg)    │
-└─────────────────┘                 └─────────────────────────┘
-│                                   │
-├─ Микрофон                         ├─ Whisper Medium (~2GB GPU)
-├─ Rich интерфейс                   ├─ RTX 3090 Ti / CUDA 12.8
-├─ WebSocket клиент                 ├─ Real-time транскрипция
-└─ Аудио захват                     └─ Environment-based config
+┌─────────────────────────────────┐    WebSocket    ┌─────────────────────────┐
+│         Клиентская часть        │ ──────────────► │   Docker GPU Server    │
+│      (mic_stream_py/client)     │    8011/8012    │     (genaminipc.awg)    │
+└─────────────────────────────────┘                 └─────────────────────────┘
+│                                                         │
+├─ Микрофон                                               ├─ Whisper Medium (~2GB GPU)
+├─ Rich интерфейс (minimal_editor.py)                    ├─ RTX 3090 Ti / CUDA 12.8
+├─ WebSocket клиент                                      ├─ Real-time транскрипция
+└─ Аудио захват                                          └─ Environment-based config
+
+Структура проекта:
+├── mic_stream_py/
+│   ├── client/          # Клиентская часть
+│   │   ├── __init__.py
+│   │   └── minimal_editor.py
+│   ├── server/          # Серверная часть (Docker)
+│   │   ├── Dockerfile
+│   │   ├── stt_server.py
+│   │   ├── env_config.py
+│   │   └── test_*.py
+│   ├── __init__.py
+│   └── cli.py
+├── docker-compose.yml   # Docker конфигурация
+└── README.md
 ```
 
 ## 🚀 Быстрый старт
@@ -36,7 +51,7 @@ source .venv/bin/activate
 
 ```bash
 # Сборка и запуск Docker контейнера
-cd ~/dev/realtime-stt-system
+cd ~/dev/mic-stream-py
 docker compose down
 docker compose build --no-cache  # ~10 минут первый раз
 docker compose up -d
@@ -455,17 +470,17 @@ NETWORK SETTINGS:
 
 ```bash
 # Логи сервера с диагностикой
-ssh genaminipc.awg 'cd ~/dev/realtime-stt-system && docker compose logs -f'
+ssh genaminipc.awg 'cd ~/dev/mic-stream-py && docker compose logs -f'
 
 # Статус контейнеров и использование ресурсов  
-ssh genaminipc.awg 'cd ~/dev/realtime-stt-system && docker compose ps && docker stats --no-stream'
+ssh genaminipc.awg 'cd ~/dev/mic-stream-py && docker compose ps && docker stats --no-stream'
 
 # GPU мониторинг
 ssh genaminipc.awg 'nvidia-smi'
 ssh genaminipc.awg 'watch -n 2 nvidia-smi'  # обновление каждые 2 сек
 
 # Проверка конфигурации без перезапуска
-ssh genaminipc.awg 'cd ~/dev/realtime-stt-system && docker exec realtime-stt-server-gpu python test_gpu_logging.py'
+ssh genaminipc.awg 'cd ~/dev/mic-stream-py && docker exec realtime-stt-server-gpu python test_gpu_logging.py'
 ```
 
 ## 🚨 Troubleshooting
@@ -629,10 +644,10 @@ netstat -tlnp | grep -E ":801[12]"
 **Быстрый старт:**
 ```bash
 # 1. Запуск сервера (автоматическая конфигурация)
-ssh genaminipc.awg "cd ~/dev/realtime-stt-system && docker compose up -d"
+ssh genaminipc.awg "cd ~/dev/mic-stream-py && docker compose up -d"
 
 # 2. Запуск клиента  
-make run-websocket-client
+make run
 
 # 3. Начинайте говорить! 🎤
 ```

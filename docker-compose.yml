@@ -1,7 +1,7 @@
 services:
   stt-server:
     build:
-      context: ./server
+      context: ./mic_stream_py/server
       dockerfile: Dockerfile
     container_name: realtime-stt-server-gpu
     ports:
@@ -31,26 +31,6 @@ services:
               count: 1
               capabilities: [gpu]
     restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('localhost', 8011), timeout=5)"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 120s  # Увеличен для загрузки CUDA моделей
-
-# Опциональный сервис для мониторинга
-  # portainer:
-  #   image: portainer/portainer-ce:latest
-  #   container_name: portainer
-  #   restart: unless-stopped
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   volumes:
-  #     - /etc/localtime:/etc/localtime:ro
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #     - ./portainer-data:/data
-  #   ports:
-  #     - 9000:9000
 
 networks:
   default:
