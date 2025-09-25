@@ -30,11 +30,11 @@ class EnvConfig:
             "enable_realtime_transcription": self._get_env_bool("ENABLE_REALTIME_TRANSCRIPTION", True),
             "silero_use_onnx": self._get_env_bool("SILERO_USE_ONNX", True),
             
-            # Настройки VAD (Voice Activity Detection)
+            # Настройки VAD (Voice Activity Detection) - увеличены для лучшего качества
             "silero_sensitivity": self._get_env_float("SILERO_SENSITIVITY", 0.05),  # 0.0-1.0
             "webrtc_sensitivity": self._get_env_int("WEBRTC_SENSITIVITY", 3),  # 1-4
-            "post_speech_silence_duration": self._get_env_float("POST_SPEECH_SILENCE_DURATION", 0.7),
-            "min_length_of_recording": self._get_env_float("MIN_LENGTH_OF_RECORDING", 1.1),
+            "post_speech_silence_duration": self._get_env_float("POST_SPEECH_SILENCE_DURATION", 1.5),  # Увеличено с 0.7 до 1.5
+            "min_length_of_recording": self._get_env_float("MIN_LENGTH_OF_RECORDING", 2.0),  # Увеличено с 1.1 до 2.0
             
             # Настройки качества распознавания (увеличены для лучшей мультиязычности)
             "beam_size": self._get_env_int("BEAM_SIZE", 10),  # Увеличено для лучшего выбора вариантов
