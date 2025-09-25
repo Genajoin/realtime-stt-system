@@ -6,6 +6,7 @@
 
 import os
 import sys
+from env_config import EnvConfig
 
 # Убираем все переменные окружения связанные с конфигурацией
 env_vars_to_remove = [
@@ -22,7 +23,6 @@ for var in env_vars_to_remove:
         del os.environ[var]
 
 # Теперь импортируем и тестируем
-from env_config import EnvConfig
 
 def test_defaults():
     """Тест значений по умолчанию."""

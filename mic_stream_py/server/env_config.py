@@ -4,7 +4,7 @@
 """
 
 import os
-from typing import Dict, Any, Union
+from typing import Dict, Any
 
 class EnvConfig:
     """Класс для загрузки конфигурации из переменных окружения."""

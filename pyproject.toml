@@ -83,6 +83,16 @@ dev = [
     "mypy>=1.0.0",
 ]
 
+# macOS специфичные зависимости
+mac = [
+    "sounddevice>=0.4.0",  # Альтернатива PyAudio для macOS
+]
+
+# Linux специфичные зависимости
+linux = [
+    "pyaudio>=0.2.11",     # Основная аудио библиотека для Linux
+]
+
 # Полная установка с GPU
 full = [
     "mic-stream-py[server,gpu,dev]",

@@ -5,17 +5,12 @@
 с упрощениями и адаптацией для контейнерной среды.
 """
 
-import os
 import sys
 import json
-import time
-import wave
 import asyncio
 import logging
 import threading
 from datetime import datetime
-from collections import deque
-import base64
 from env_config import env_config
 
 # Настройка логирования для Docker
@@ -29,7 +24,7 @@ logger = logging.getLogger('STTServer')
 try:
     import numpy as np
     import websockets
-    from colorama import init, Fore, Style
+    from colorama import init
     from RealtimeSTT import AudioToTextRecorder
     from scipy.signal import resample
     import pyaudio
@@ -223,11 +218,11 @@ class STTServer:
                 total_memory = torch.cuda.mem_get_info()[1]
                 used_memory = total_memory - free_memory
                 
-                logger.info(f"  GPU Memory After Model Load:")
+                logger.info("  GPU Memory After Model Load:")
                 logger.info(f"    Total: {total_memory / (1024**3):.1f} GB")
                 logger.info(f"    Used: {used_memory / (1024**3):.1f} GB")
                 logger.info(f"    Free: {free_memory / (1024**3):.1f} GB")
-                logger.info(f"  Model successfully loaded on GPU!")
+                logger.info("  Model successfully loaded on GPU!")
             else:
                 logger.warning("  Model loaded on CPU (CUDA not available)")
                 

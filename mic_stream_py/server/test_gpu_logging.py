@@ -100,7 +100,7 @@ try:
         if configured_device != actual_device:
             logger.warning(f"  WARNING: Device fallback from {configured_device} to {actual_device}")
         else:
-            logger.info(f"  SUCCESS: Device configuration matches actual device")
+            logger.info("  SUCCESS: Device configuration matches actual device")
         
         logger.info("=" * 50)
         logger.info("GPU logging test completed successfully!")

@@ -3,7 +3,6 @@
 Тестовый скрипт для проверки загрузки конфигурации из переменных окружения.
 """
 
-import os
 import sys
 from pathlib import Path
 

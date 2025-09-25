@@ -21,8 +21,6 @@ import time
 import struct
 import contextlib
 import subprocess
-from typing import Optional, Callable, List, Tuple
-from datetime import datetime
 
 # Основные зависимости
 try:
@@ -40,14 +38,12 @@ try:
     from prompt_toolkit import Application
     from prompt_toolkit.buffer import Buffer
     from prompt_toolkit.layout import Layout
-    from prompt_toolkit.layout.containers import HSplit, VSplit, Window, Float, ConditionalContainer
+    from prompt_toolkit.layout.containers import HSplit, VSplit, Window, ConditionalContainer
     from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.styles import Style
     from prompt_toolkit.formatted_text import FormattedText
-    from prompt_toolkit.application import get_app
-    from prompt_toolkit.clipboard import ClipboardData
-    from prompt_toolkit.widgets import Box, Label
+    # Unused imports removed
     from prompt_toolkit.filters import Condition
 except ImportError as e:
     print(f"Ошибка импорта prompt_toolkit: {e}")
@@ -55,7 +51,7 @@ except ImportError as e:
     sys.exit(1)
 
 
-def load_env_file():
+def load_env_file() -> None:
     """Загрузка переменных окружения из .env файла"""
     env_file = os.path.join(os.path.dirname(__file__), ".env")
     if os.path.exists(env_file):
@@ -74,32 +70,37 @@ load_env_file()
 
 def play_sound(sound_type):
     """
-    Воспроизводит системные звуки через canberra-gtk-play.
+    Кроссплатформенное воспроизведение системных звуков.
     sound_type: 'start' для начала записи, 'end' для окончания распознавания
     """
-    sound_name = 'bell' if sound_type == 'start' else 'message'
+    import platform
     
     try:
-        result = subprocess.run(
-            ['canberra-gtk-play', '-i', sound_name],
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.DEVNULL,
-            timeout=2
-        )
-        if result.returncode == 0:
-            pass  # Звук воспроизведен успешно
-        else:
-            # Fallback на терминальный bell если canberra не сработал
-            print('\a', end='', flush=True)
-    except subprocess.TimeoutExpired:
-        # Fallback при таймауте
+        if platform.system() == 'Darwin':  # macOS
+            # Используем macOS нативные звуки
+            sound_file = '/System/Library/Sounds/Ping.aiff'
+            subprocess.run(['afplay', sound_file], 
+                         stdout=subprocess.DEVNULL, 
+                         stderr=subprocess.DEVNULL,
+                         timeout=2)
+        else:  # Linux и другие
+            sound_name = 'bell' if sound_type == 'start' else 'message'
+            result = subprocess.run(
+                ['canberra-gtk-play', '-i', sound_name],
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL,
+                timeout=2
+            )
+            if result.returncode == 0:
+                return  # Звук воспроизведен успешно
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+        pass  # Игнорируем ошибки системных звуков
+    
+    # Универсальный fallback на терминальный bell
+    try:
         print('\a', end='', flush=True)
     except Exception:
-        # Fallback при любой ошибке
-        try:
-            print('\a', end='', flush=True)
-        except:
-            pass
+        pass
 
 
 class ClipboardManager:
@@ -281,8 +282,9 @@ class WebSocketSTTClient:
             return
 
         try:
-            # Инициализация PyAudio с подавлением ALSA warnings
-            with self.suppress_alsa_warnings():
+            # Кроссплатформенная инициализация PyAudio
+            import platform
+            if platform.system() == 'Darwin':  # macOS
                 self.pyaudio_instance = pyaudio.PyAudio()
                 self.audio_stream = self.pyaudio_instance.open(
                     format=self.audio_format,
@@ -291,11 +293,22 @@ class WebSocketSTTClient:
                     input=True,
                     frames_per_buffer=self.chunk_size
                 )
+            else:  # Linux и другие
+                with self.suppress_alsa_warnings():
+                    self.pyaudio_instance = pyaudio.PyAudio()
+                    self.audio_stream = self.pyaudio_instance.open(
+                        format=self.audio_format,
+                        channels=self.channels,
+                        rate=self.sample_rate,
+                        input=True,
+                        frames_per_buffer=self.chunk_size
+                    )
 
             self.is_recording = True
 
             # Отправка команды начала записи
-            await self.control_ws.send(json.dumps({
+            if self.control_ws:
+                await self.control_ws.send(json.dumps({
                 "action": "start_recording",
                 "config": {
                     "sample_rate": self.sample_rate,
@@ -306,7 +319,7 @@ class WebSocketSTTClient:
             # Запуск захвата аудио
             asyncio.create_task(self.audio_capture_task())
 
-        except Exception as e:
+        except Exception:
             self.is_recording = False
 
     async def stop_recording(self):
@@ -317,8 +330,9 @@ class WebSocketSTTClient:
         self.is_recording = False
 
         try:
-            # Остановка аудио потока с подавлением ALSA warnings
-            with self.suppress_alsa_warnings():
+            # Кроссплатформенная остановка аудио потока
+            import platform
+            if platform.system() == 'Darwin':  # macOS
                 if self.audio_stream:
                     self.audio_stream.stop_stream()
                     self.audio_stream.close()
@@ -327,6 +341,16 @@ class WebSocketSTTClient:
                 if self.pyaudio_instance:
                     self.pyaudio_instance.terminate()
                     self.pyaudio_instance = None
+            else:  # Linux и другие
+                with self.suppress_alsa_warnings():
+                    if self.audio_stream:
+                        self.audio_stream.stop_stream()
+                        self.audio_stream.close()
+                        self.audio_stream = None
+
+                    if self.pyaudio_instance:
+                        self.pyaudio_instance.terminate()
+                        self.pyaudio_instance = None
 
             # Отправка команды остановки
             if self.control_ws:
@@ -410,35 +434,36 @@ class WebSocketSTTClient:
     async def message_handler(self):
         """Обработчик сообщений от STT сервера"""
         try:
-            async for message in self.data_ws:
-                if isinstance(message, str):
-                    try:
-                        data = json.loads(message)
-                        msg_type = data.get('type')
+            if self.data_ws:
+                async for message in self.data_ws:
+                    if isinstance(message, str):
+                            try:
+                                data = json.loads(message)
+                                msg_type = data.get('type')
 
-                        if msg_type == 'realtime':
-                            # Real-time предварительный текст
-                            realtime_text = data.get('text', '')
-                            await self.editor.on_realtime_text_received(realtime_text)
+                                if msg_type == 'realtime':
+                                    # Real-time предварительный текст
+                                    realtime_text = data.get('text', '')
+                                    await self.editor.on_realtime_text_received(realtime_text)
 
-                        elif msg_type == 'fullSentence':
-                            # Финальное предложение
-                            text = data.get('text', '')
-                            if text.strip():
-                                # Передача финального текста в редактор
-                                await self.editor.on_stt_text_received(text, is_final=True)
-                            else:
-                                # Очищаем realtime текст даже если финальный пустой
-                                await self.editor.on_realtime_text_received("")
+                                elif msg_type == 'fullSentence':
+                                    # Финальное предложение
+                                    text = data.get('text', '')
+                                    if text.strip():
+                                        # Передача финального текста в редактор
+                                        await self.editor.on_stt_text_received(text, is_final=True)
+                                    else:
+                                        # Очищаем realtime текст даже если финальный пустой
+                                        await self.editor.on_realtime_text_received("")
 
-                        elif msg_type == 'recording_start':
-                            self.is_recording = True
+                                elif msg_type == 'recording_start':
+                                    self.is_recording = True
 
-                        elif msg_type == 'recording_stop':
-                            self.is_recording = False
+                                elif msg_type == 'recording_stop':
+                                    self.is_recording = False
 
-                    except json.JSONDecodeError:
-                        pass
+                            except json.JSONDecodeError:
+                                pass
 
         except Exception:
             pass
@@ -466,6 +491,9 @@ class MinimalSTTEditor:
 
         # Состояние справки
         self.show_help = False
+        
+        # Флаг для вывода инициализации (для тестового режима)
+        self._initialization_output = False
 
         # UI компоненты
         self.buffer_control = BufferControl(
@@ -588,7 +616,10 @@ class MinimalSTTEditor:
         # Ctrl+A - Выделить все
         @kb.add('c-a')
         def select_all(event):
-            self.buffer.select_all()
+            # Используем стандартный метод выделения всего текста
+            self.buffer.cursor_position = 0
+            self.buffer.start_selection()
+            self.buffer.cursor_position = len(self.buffer.text)
 
         # Ctrl+Q - Выход
         @kb.add('c-q')

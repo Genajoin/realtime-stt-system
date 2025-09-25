@@ -11,7 +11,7 @@ YELLOW := \033[0;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help install run docker-build docker-run docker-stop docker-logs docker-status deploy remote-logs remote-status clean
+.PHONY: help install install-mac run docker-build docker-run docker-stop docker-logs docker-status deploy remote-logs remote-status clean check-platform
 
 # Помощь (команда по умолчанию)
 help:
@@ -20,7 +20,9 @@ help:
 	@echo "$(BLUE)╚════════════════════════════════════════════════╝$(NC)"
 	@echo ""
 	@echo "$(GREEN)Установка:$(NC)"
-	@echo "  $(YELLOW)make install$(NC)               - Установка зависимостей в .venv"
+	@echo "  $(YELLOW)make install$(NC)               - Установка зависимостей в .venv (Linux)"
+	@echo "  $(YELLOW)make install-mac$(NC)           - Установка зависимостей для macOS"
+	@echo "  $(YELLOW)make check-platform$(NC)         - Проверка текущей платформы"
 	@echo ""
 	@echo "$(GREEN)Запуск:$(NC)"
 	@echo "  $(YELLOW)make run$(NC)                   - Запуск STT клиента"
@@ -53,6 +55,18 @@ install:
 	@. .venv/bin/activate && pip install -e .
 	@echo "$(GREEN)✅ Установка завершена$(NC)"
 	@echo "$(BLUE)💡 Активируйте окружение: source .venv/bin/activate$(NC)"
+
+# Установка для macOS
+install-mac:
+	@echo "$(BLUE)📦 Создание виртуального окружения для macOS...$(NC)"
+	@$(PYTHON) -m venv .venv
+	@echo "$(BLUE)📦 Активация виртуального окружения...$(NC)"
+	@. .venv/bin/activate && pip install --upgrade pip
+	@echo "$(BLUE)📦 Установка зависимостей для macOS...$(NC)"
+	@. .venv/bin/activate && pip install -e .[mac]
+	@echo "$(GREEN)✅ Установка для macOS завершена$(NC)"
+	@echo "$(BLUE)💡 Активируйте окружение: source .venv/bin/activate$(NC)"
+	@echo "$(YELLOW)⚠️  Если возникли проблемы с PyAudio, выполните: brew install portaudio && pip install pyaudio$(NC)"
 
 run:
 	@echo "$(BLUE)🎤 Запуск STT клиента...$(NC)"
@@ -123,6 +137,17 @@ test-connection:
 	@echo "$(BLUE)🔌 Тестирование подключения к серверу...$(NC)"
 	@timeout 5 bash -c "echo > /dev/tcp/genaminipc.awg/8011" && echo "$(GREEN)✅ Порт 8011 доступен$(NC)" || echo "$(RED)❌ Порт 8011 недоступен$(NC)"
 	@timeout 5 bash -c "echo > /dev/tcp/genaminipc.awg/8012" && echo "$(GREEN)✅ Порт 8012 доступен$(NC)" || echo "$(RED)❌ Порт 8012 недоступен$(NC)"
+
+# Проверка платформы
+check-platform:
+	@echo "$(BLUE)🖥️  Проверка платформы...$(NC)"
+	@echo "$(GREEN)Операционная система: $(shell uname -s)$(NC)"
+	@if [ "$(shell uname -s)" = "Darwin" ]; then \
+		echo "$(YELLOW)🍎 Обнаружена macOS - используйте 'make install-mac' для установки$(NC)"; \
+		echo "$(YELLOW)💡 Для установки PyAudio: brew install portaudio && pip install pyaudio$(NC)"; \
+	else \
+		echo "$(GREEN)🐧 Обнаружена Linux - используйте 'make install' для установки$(NC)"; \
+	fi
 
 # Команда по умолчанию
 .DEFAULT_GOAL := help

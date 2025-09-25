@@ -35,6 +35,7 @@
 
 ### 1. Установка зависимостей
 
+#### Для Linux:
 ```bash
 # Клонируем репозиторий
 git clone <repository-url>
@@ -42,6 +43,26 @@ cd mic-stream-py
 
 # Устанавливаем зависимости
 make install
+
+# Активируем виртуальное окружение
+source .venv/bin/activate
+```
+
+#### Для macOS:
+```bash
+# Клонируем репозиторий
+git clone <repository-url>
+cd mic-stream-py
+
+# Устанавливаем зависимости с поддержкой Mac
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .[mac]
+
+# Если PyAudio не устанавливается, используем Homebrew:
+brew install portaudio
+pip install pyaudio
 
 # Активируем виртуальное окружение
 source .venv/bin/activate
@@ -482,6 +503,38 @@ ps aux | grep -E "(python.*stt|python.*editor)" | grep -v grep
 kill <PID>  # если найдены процессы
 
 # Проверить аудио устройства
+python3 -c "import pyaudio; p = pyaudio.PyAudio(); [print(f'{i}: {p.get_device_info_by_index(i)}') for i in range(p.get_device_count())]"
+```
+
+### Проблемы на macOS
+
+**PyAudio не устанавливается:**
+```bash
+# Установить Portaudio через Homebrew
+brew install portaudio
+
+# Затем установить PyAudio
+pip install pyaudio
+
+# Или использовать альтернативу sounddevice
+pip install sounddevice
+```
+
+**Нет системных звуков:**
+```bash
+# Проверить наличие системных звуков
+ls /System/Library/Sounds/
+
+# Если звуки отсутствуют, клиент будет работать без звуковых уведомлений
+# Это не влияет на функциональность распознавания речи
+```
+
+**Микрофон не работает:**
+```bash
+# Проверить разрешения микрофона в System Preferences > Security & Privacy > Privacy
+# Дать разрешение терминалу на доступ к микрофону
+
+# Проверить доступные аудио устройства
 python3 -c "import pyaudio; p = pyaudio.PyAudio(); [print(f'{i}: {p.get_device_info_by_index(i)}') for i in range(p.get_device_count())]"
 ```
 
