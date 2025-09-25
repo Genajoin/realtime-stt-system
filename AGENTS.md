@@ -3,6 +3,7 @@
 ## Команды сборки/тестирования
 - **Тесты**: `pytest` для полного набора или `python3 -m unittest discover` для базовых тестов
 - **Одиночный тест**: `python3 server/test_config.py` (файлы test_*.py можно запускать напрямую)
+- **Запуск клиента**: `make run`
 - **Docker**: не использовать локальный сервер не имеющий GPU
 - **Деплой**: `make deploy` на удаленный сервер genaminipc.awg
 - **Логи**: `make docker-logs` (локально) или `make remote-logs` (удаленно)

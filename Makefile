@@ -11,16 +11,19 @@ YELLOW := \033[0;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help run-minimal-editor docker-build docker-run docker-stop docker-logs docker-status deploy remote-logs remote-status clean
+.PHONY: help install run docker-build docker-run docker-stop docker-logs docker-status deploy remote-logs remote-status clean
 
 # Помощь (команда по умолчанию)
 help:
 	@echo "$(BLUE)╔════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║          Realtime STT System Commands         ║$(NC)"
+	@echo "$(BLUE)║          Realtime STT System Commands          ║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════════════╝$(NC)"
 	@echo ""
-	@echo "$(GREEN)Клиент команды:$(NC)"
-	@echo "  $(YELLOW)make run-minimal-editor$(NC)       - Минималистичный STT редактор без рамок"
+	@echo "$(GREEN)Установка:$(NC)"
+	@echo "  $(YELLOW)make install$(NC)               - Установка зависимостей в .venv"
+	@echo ""
+	@echo "$(GREEN)Запуск:$(NC)"
+	@echo "  $(YELLOW)make run$(NC)                   - Запуск STT клиента"
 	@echo ""
 	@echo "$(GREEN)Docker команды:$(NC)"
 	@echo "  $(YELLOW)make docker-build$(NC)         - Сборка Docker образа"
@@ -38,15 +41,23 @@ help:
 	@echo "  $(YELLOW)make clean$(NC)                - Очистка проекта"
 
 # ════════════════════════════════════════════════════════════════
-# Клиент команды
+# Установка
 # ════════════════════════════════════════════════════════════════
 
-run-minimal-editor:
-	@echo "$(GREEN)✏️  Запуск минималистичного STT редактора...$(NC)"
-	@echo "$(BLUE)📝 Терминальный редактор в стиле mcedit БЕЗ рамок$(NC)"
-	@echo "$(BLUE)🎤 F1 - переключить запись STT, автокопирование при выделении мышью$(NC)"
-	@echo "$(BLUE)🌐 Конфигурация загружается из .env файла$(NC)"
-	@$(PYTHON) websocket_minimal_editor.py
+install:
+	@echo "$(BLUE)📦 Создание виртуального окружения...$(NC)"
+	@$(PYTHON) -m venv .venv
+	@echo "$(BLUE)📦 Активация виртуального окружения...$(NC)"
+	@. .venv/bin/activate && pip install --upgrade pip
+	@echo "$(BLUE)📦 Установка зависимостей...$(NC)"
+	@. .venv/bin/activate && pip install -e .
+	@echo "$(GREEN)✅ Установка завершена$(NC)"
+	@echo "$(BLUE)💡 Активируйте окружение: source .venv/bin/activate$(NC)"
+
+run:
+	@echo "$(BLUE)🎤 Запуск STT клиента...$(NC)"
+	@. .venv/bin/activate && mic-stream
+	@echo "$(GREEN)✅ Клиент запущен$(NC)"
 
 # ════════════════════════════════════════════════════════════════
 # Docker команды для локальной разработки
