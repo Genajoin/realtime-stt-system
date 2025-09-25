@@ -13,21 +13,9 @@ FROM dockerhub.timeweb.cloud/pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS py
 WORKDIR /app
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 2: Создание символических ссылок для cuDNN и системные зависимости
+# Stage 2: Системные зависимости через conda (редко меняются)
 # ═══════════════════════════════════════════════════════════════
 FROM pytorch-base AS system-libs
-
-# Создаем символические ссылки для cuDNN библиотек, которые ищет приложение
-# и добавляем путь к cuDNN в LD_LIBRARY_PATH
-RUN cd /opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib && \
-    for lib in libcudnn*.so.9; do \
-        base_name=$(echo "$lib" | sed 's/\.so\.9$//'); \
-        ln -sf "$lib" "${base_name}.so.9.1.0"; \
-        ln -sf "$lib" "${base_name}.so.9.1"; \
-        ln -sf "$lib" "${base_name}.so"; \
-    done && \
-    echo "/opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib" > /etc/ld.so.conf.d/cudnn.conf && \
-    ldconfig
 
 # Устанавливаем системные зависимости через conda
 RUN conda update -n base -c defaults conda -y && \
@@ -59,12 +47,24 @@ COPY requirements-server.txt .
 RUN pip3 install --no-cache-dir --no-compile -r requirements-server.txt
 
 # ═══════════════════════════════════════════════════════════════
-# Stage 5: Конфигурация окружения (~10MB)
+# Stage 5: Конфигурация окружения и cuDNN (~10MB)
 # ═══════════════════════════════════════════════════════════════
 FROM light-deps AS runtime-config
 
 # Создаем директории и настраиваем окружение
 RUN mkdir -p /app/models /app/logs /app/cache
+
+# Создаем символические ссылки для cuDNN библиотек, которые ищет приложение
+# и добавляем путь к cuDNN в LD_LIBRARY_PATH
+RUN cd /opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib && \
+    for lib in libcudnn*.so.9; do \
+        base_name=$(echo "$lib" | sed 's/\.so\.9$//'); \
+        ln -sf "$lib" "${base_name}.so.9.1.0"; \
+        ln -sf "$lib" "${base_name}.so.9.1"; \
+        ln -sf "$lib" "${base_name}.so"; \
+    done && \
+    echo "/opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib" > /etc/ld.so.conf.d/cudnn.conf && \
+    ldconfig
 
 # Настраиваем переменные окружения
 ENV PYTHONUNBUFFERED=1 \
