@@ -10,8 +10,8 @@ services:
     env_file:
       - .env
     environment:
-      # - NVIDIA_VISIBLE_DEVICES=all
-      # - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
       - TORCH_HOME=/app/models
       - HF_HOME=/app/cache
       - TRANSFORMERS_CACHE=/app/cache
@@ -23,13 +23,13 @@ services:
       - ./cache:/app/cache
       # Монтируем директорию для логов
       - ./logs:/app/logs
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     restart: unless-stopped
     # healthcheck:
     #   test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('localhost', 8011), timeout=5)"]
