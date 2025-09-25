@@ -86,12 +86,20 @@ class STTServer:
         logger.info("STT SERVER CONFIGURATION")
         logger.info("=" * 50)
         
+        # Проверка реального состояния GPU
+        self.log_gpu_status()
+        
         # Основные параметры модели
         logger.info("MODEL SETTINGS:")
         logger.info(f"  Whisper Model: {env_config.get('model')}")
         logger.info(f"  Language: {env_config.get('language')}")
         logger.info(f"  Real-time Model: {env_config.get('realtime_model_type')}")
-        logger.info(f"  Device: {env_config.get('device')}")
+        configured_device = env_config.get('device')
+        actual_device = self.get_actual_device()
+        logger.info(f"  Configured Device: {configured_device}")
+        logger.info(f"  Actual Device: {actual_device}")
+        if configured_device != actual_device:
+            logger.warning(f"  WARNING: Device fallback from {configured_device} to {actual_device}")
         
         # Сетевые параметры
         logger.info("NETWORK SETTINGS:")
@@ -122,6 +130,65 @@ class STTServer:
         logger.info(f"  Initial Prompt: {prompt_preview}")
         
         logger.info("=" * 50)
+    
+    def log_gpu_status(self):
+        """Проверка и логирование реального состояния GPU."""
+        logger.info("GPU STATUS:")
+        
+        try:
+            import torch
+            
+            # Проверка доступности CUDA
+            cuda_available = torch.cuda.is_available()
+            logger.info(f"  CUDA Available: {cuda_available}")
+            
+            if cuda_available:
+                # Информация о GPU устройствах
+                device_count = torch.cuda.device_count()
+                logger.info(f"  GPU Devices Count: {device_count}")
+                
+                for i in range(device_count):
+                    gpu_name = torch.cuda.get_device_name(i)
+                    gpu_memory = torch.cuda.get_device_properties(i).total_memory
+                    gpu_memory_gb = gpu_memory / (1024**3)
+                    logger.info(f"  GPU {i}: {gpu_name} ({gpu_memory_gb:.1f} GB)")
+                
+                # Проверка текущего GPU устройства
+                if device_count > 0:
+                    current_device = torch.cuda.current_device()
+                    logger.info(f"  Current GPU Device: {current_device}")
+                    
+                    # Проверка свободной памяти
+                    try:
+                        free_memory = torch.cuda.mem_get_info()[0]
+                        total_memory = torch.cuda.mem_get_info()[1]
+                        used_memory = total_memory - free_memory
+                        
+                        logger.info(f"  GPU Memory - Total: {total_memory / (1024**3):.1f} GB")
+                        logger.info(f"  GPU Memory - Used: {used_memory / (1024**3):.1f} GB")
+                        logger.info(f"  GPU Memory - Free: {free_memory / (1024**3):.1f} GB")
+                    except Exception as e:
+                        logger.warning(f"  Could not get GPU memory info: {e}")
+            else:
+                logger.warning("  CUDA not available - will use CPU")
+                
+        except ImportError:
+            logger.error("  PyTorch not available - cannot check GPU status")
+        except Exception as e:
+            logger.error(f"  Error checking GPU status: {e}")
+        
+        logger.info("-" * 30)
+    
+    def get_actual_device(self):
+        """Определение реального устройства, которое будет использоваться."""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                return "cuda"
+            else:
+                return "cpu"
+        except ImportError:
+            return "cpu"
         
     def log_recorder_config(self, config):
         """Логирование конфигурации recorder'а."""
@@ -129,7 +196,11 @@ class STTServer:
         logger.info(f"  Model: {config['model']}")
         logger.info(f"  Language: {config['language']}")
         logger.info(f"  Real-time Model: {config['realtime_model_type']}")
-        logger.info(f"  Device: {config['device']}")
+        logger.info(f"  Requested Device: {config['device']}")
+        actual_device = self.get_actual_device()
+        logger.info(f"  Actual Device: {actual_device}")
+        if config['device'] != actual_device:
+            logger.warning(f"  DEVICE FALLBACK: {config['device']} -> {actual_device}")
         logger.info(f"  Compute Type: {config['compute_type']}")
         logger.info(f"  Real-time Transcription: {config['enable_realtime_transcription']}")
         logger.info(f"  Silero ONNX: {config['silero_use_onnx']}")
@@ -138,6 +209,32 @@ class STTServer:
         logger.info(f"  Beam Size: {config['beam_size']}")
         logger.info(f"  Beam Size (Real-time): {config['beam_size_realtime']}")
         logger.info("-" * 40)
+    
+    def log_final_gpu_status(self):
+        """Финальная проверка GPU после загрузки модели."""
+        logger.info("POST-INITIALIZATION GPU STATUS:")
+        
+        try:
+            import torch
+            
+            if torch.cuda.is_available():
+                # Проверка памяти после загрузки модели
+                free_memory = torch.cuda.mem_get_info()[0]
+                total_memory = torch.cuda.mem_get_info()[1]
+                used_memory = total_memory - free_memory
+                
+                logger.info(f"  GPU Memory After Model Load:")
+                logger.info(f"    Total: {total_memory / (1024**3):.1f} GB")
+                logger.info(f"    Used: {used_memory / (1024**3):.1f} GB")
+                logger.info(f"    Free: {free_memory / (1024**3):.1f} GB")
+                logger.info(f"  Model successfully loaded on GPU!")
+            else:
+                logger.warning("  Model loaded on CPU (CUDA not available)")
+                
+        except Exception as e:
+            logger.error(f"  Error checking final GPU status: {e}")
+        
+        logger.info("=" * 50)
         
     def preprocess_text(self, text):
         """Предобработка текста."""
@@ -222,6 +319,9 @@ class STTServer:
             logger.info("Creating AudioToTextRecorder...")
             self.recorder = AudioToTextRecorder(**config)
             logger.info("Recorder initialized successfully")
+            
+            # Финальная проверка GPU использования после инициализации модели
+            self.log_final_gpu_status()
             self.recorder_ready.set()
             
             def process_text_wrapper(text):
