@@ -39,13 +39,15 @@ try:
     from prompt_toolkit import Application
     from prompt_toolkit.buffer import Buffer
     from prompt_toolkit.layout import Layout
-    from prompt_toolkit.layout.containers import HSplit, Window
+    from prompt_toolkit.layout.containers import HSplit, VSplit, Window, Float, ConditionalContainer
     from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.styles import Style
     from prompt_toolkit.formatted_text import FormattedText
     from prompt_toolkit.application import get_app
     from prompt_toolkit.clipboard import ClipboardData
+    from prompt_toolkit.widgets import Box, Label
+    from prompt_toolkit.filters import Condition
 except ImportError as e:
     print(f"Ошибка импорта prompt_toolkit: {e}")
     print("Установите prompt_toolkit: pip install prompt_toolkit")
@@ -98,22 +100,21 @@ class StatusBar:
         self.editor = editor
         self.last_copy_time = 0
 
-    def get_formatted_text(self) -> FormattedText:
-        """Получение форматированного текста для статус бара"""
+    def get_left_status(self) -> FormattedText:
+        """Левая часть статус бара: индикатор + F1:Help"""
         items = []
 
-        # Индикатор состояния STT на основе current_text
+        # Индикатор состояния STT
         stt_client = getattr(self.editor, 'stt_client', None)
         if stt_client and stt_client.is_connected:
-            # Проверяем наличие realtime текста в редакторе
             if getattr(self.editor, 'current_text', '') and self.editor.current_text.strip():
-                # Красный: идет активное распознавание STT
+                # Красный: идет активное распознавание
                 items.append(('class:status-recording', '[●] '))
             elif getattr(stt_client, 'is_paused', False):
                 # Оранжевый: на паузе
                 items.append(('class:status-paused', '[●] '))
             elif stt_client.is_recording:
-                # Зеленый: подключен и мониторит голос
+                # Зеленый: мониторит голос
                 items.append(('class:status-monitoring', '[●] '))
             else:
                 # Серый: подключен, но не записывает
@@ -122,37 +123,32 @@ class StatusBar:
             # Серый: не подключен
             items.append(('class:status-idle', '[●] '))
 
-        # Горячие клавиши (динамические в зависимости от состояния)
-        stt_client = getattr(self.editor, 'stt_client', None)
-        if stt_client and stt_client.is_connected:
-            if getattr(stt_client, 'is_paused', False):
-                f5_text = 'F5:Resume'
-            elif stt_client.is_recording:
-                f5_text = 'F5:Pause'
-            else:
-                f5_text = 'F5:Start'
-        else:
-            f5_text = 'F5:Record'
+        # F1:Help + индикатор копирования
+        items.append(('', 'F1:Help'))
 
-        items.append(('', f'{f5_text} F3:Copy F8:Clear'))
-
-        # Индикатор копирования (показывается 1.5 секунды)
+        # Индикатор копирования
         current_time = time.time()
         if current_time - self.last_copy_time < 1.5:
             items.append(('class:status-success', ' ✓'))
 
-        # Статус соединения (сокращенный)
+        return FormattedText(items)
+
+    def get_right_status(self) -> FormattedText:
+        """Правая часть статус бара: состояние STT"""
+        items = []
+
+        stt_client = getattr(self.editor, 'stt_client', None)
         if stt_client and stt_client.is_connected:
             if getattr(self.editor, 'current_text', '') and self.editor.current_text.strip():
-                items.append(('class:status-recording', ' Recognizing'))
+                items.append(('class:status-recording', 'Recognizing'))
             elif getattr(stt_client, 'is_paused', False):
-                items.append(('class:status-paused', ' Paused'))
+                items.append(('class:status-paused', 'Paused'))
             elif stt_client.is_recording:
-                items.append(('class:status-connected', ' Listening'))
+                items.append(('class:status-connected', 'Listening'))
             else:
-                items.append(('class:status-connected', ' Ready'))
+                items.append(('class:status-connected', 'Ready'))
         else:
-            items.append(('class:status-disconnected', ' Offline'))
+            items.append(('class:status-disconnected', 'Offline'))
 
         return FormattedText(items)
 
@@ -437,6 +433,9 @@ class MinimalSTTEditor:
         self.current_text = ""  # Промежуточный текст от STT
         self.realtime_start_pos = None  # Позиция начала realtime текста в буфере
 
+        # Состояние справки
+        self.show_help = False
+
         # UI компоненты
         self.buffer_control = BufferControl(
             buffer=self.buffer,
@@ -452,20 +451,38 @@ class MinimalSTTEditor:
             dont_extend_height=False
         )
 
-        # Статус бар
-        self.status_window = Window(
-            content=FormattedTextControl(
-                lambda: self.status_bar.get_formatted_text()
+        # Статус бар с разделением на левую и правую части
+        self.status_window = VSplit([
+            # Левая часть: индикатор + F1:Help
+            Window(
+                content=FormattedTextControl(
+                    lambda: self.status_bar.get_left_status()
+                ),
+                dont_extend_width=True
             ),
-            height=1,
-            dont_extend_width=False
-        )
+            # Центр: пустое пространство (расширяется)
+            Window(char=' '),
+            # Правая часть: статус STT
+            Window(
+                content=FormattedTextControl(
+                    lambda: self.status_bar.get_right_status()
+                ),
+                dont_extend_width=True
+            ),
+        ], height=1)
 
-        # Layout: редактор + статус бар
+        # Layout: редактор + статус бар (пока без справки)
         self.layout = Layout(
             HSplit([
-                self.editor_window,  # Главная область (расширяется)
-                self.status_window   # Статус бар (1 строка)
+                # Окно справки (сверху если показана)
+                ConditionalContainer(
+                    content=self.create_help_window(),
+                    filter=Condition(lambda: self.show_help)
+                ),
+                # Главная область (расширяется)
+                self.editor_window,
+                # Статус бар (1 строка)
+                self.status_window
             ])
         )
 
@@ -479,6 +496,11 @@ class MinimalSTTEditor:
             'status-connected': 'bg:#008800 #ffffff',       # Зеленый фон при подключении
             'status-disconnected': 'bg:#880000 #ffffff',    # Красный фон при отключении
             'status-success': 'bg:#008800 #ffffff bold',    # Зеленый для success
+            # Справка
+            'help-box': 'bg:#ffffff #000000',               # Белый фон для справки
+            'help-title': '#0066cc bold',                   # Синий заголовок
+            'help-section': '#006600 bold',                 # Зеленый заголовок секции
+            'help-key': '#cc6600 bold',                     # Оранжевые клавиши
         })
 
         # Приложение
@@ -496,6 +518,19 @@ class MinimalSTTEditor:
         """Создание клавиатурных привязок"""
         kb = KeyBindings()
 
+        # F1 - Показать/скрыть справку
+        @kb.add('f1')
+        def toggle_help(event):
+            self.show_help = not self.show_help
+            event.app.invalidate()
+
+        # ESC - Скрыть справку
+        @kb.add('escape')
+        def hide_help(event):
+            if self.show_help:
+                self.show_help = False
+                event.app.invalidate()
+
         # F5 - Переключить паузу/возобновление STT
         @kb.add('f5')
         def toggle_pause(event):
@@ -508,6 +543,11 @@ class MinimalSTTEditor:
             if text.strip():
                 if self.clipboard_manager.copy_text(text):
                     self.status_bar.show_copy_indicator()
+
+        # F8 - Очистить весь текст
+        @kb.add('f8')
+        def clear_all_text(event):
+            self.buffer.text = ''
 
         # Ctrl+C - Выход из приложения
         @kb.add('c-c')
@@ -526,6 +566,48 @@ class MinimalSTTEditor:
 
 
         return kb
+
+    def create_help_window(self):
+        """Создание окна справки"""
+        help_text = FormattedText([
+            ('class:help-title', '╔═══════════════════════════════════\n'),
+            ('class:help-title', '║    STT Минимальный Редактор    ║\n'),
+            ('class:help-title', '╚═══════════════════════════════════\n\n'),
+            ('class:help-section', 'Индикаторы состояния:\n'),
+            ('class:status-monitoring', '  ● Зеленый'),
+            ('', ' - мониторинг голоса\n'),
+            ('class:status-recording', '  ● Красный'),
+            ('', ' - активное распознавание\n'),
+            ('class:status-paused', '  ● Оранжевый'),
+            ('', ' - пауза\n'),
+            ('class:status-idle', '  ● Серый'),
+            ('', ' - отключен/неактивен\n\n'),
+            ('class:help-section', 'Горячие клавиши:\n'),
+            ('class:help-key', '  F1'),
+            ('', ' - показать/скрыть справку\n'),
+            ('class:help-key', '  F5'),
+            ('', ' - пауза/возобновление STT\n'),
+            ('class:help-key', '  F3'),
+            ('', ' - копировать весь текст\n'),
+            ('class:help-key', '  F8'),
+            ('', ' - очистить все\n'),
+            ('class:help-key', '  Ctrl+A'),
+            ('', ' - выделить все\n'),
+            ('class:help-key', '  ESC'),
+            ('', ' - закрыть справку\n\n'),
+            ('class:help-section', 'Особенности:\n'),
+            ('', '  • Автоматический старт записи\n'),
+            ('', '  • Автокопирование текста\n'),
+            ('', '  • Поддержка мыши\n'),
+            ('', '  • Real-time превью')
+        ])
+
+        return Window(
+            content=FormattedTextControl(lambda: help_text),
+            width=40,
+            height=20,
+            style='class:help-box'
+        )
 
     def on_app_invalidate(self, sender=None):
         """Обработчик обновления приложения - проверяем изменения в выделении"""
