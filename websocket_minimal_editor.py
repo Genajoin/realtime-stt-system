@@ -122,26 +122,37 @@ class StatusBar:
             # Серый: не подключен
             items.append(('class:status-idle', '[●] '))
 
-        # Горячие клавиши
-        items.append(('', 'F1:Pause/Resume F3:CopyAll Ctrl+C:Exit (AutoCopy: Select with mouse)'))
+        # Горячие клавиши (динамические в зависимости от состояния)
+        stt_client = getattr(self.editor, 'stt_client', None)
+        if stt_client and stt_client.is_connected:
+            if getattr(stt_client, 'is_paused', False):
+                f1_text = 'F1:Resume'
+            elif stt_client.is_recording:
+                f1_text = 'F1:Pause'
+            else:
+                f1_text = 'F1:Start'
+        else:
+            f1_text = 'F1:Record'
 
-        # Индикатор копирования (показывается 2 секунды)
+        items.append(('', f'{f1_text} F3:Copy F8:Clear Ctrl+C:Exit'))
+
+        # Индикатор копирования (показывается 1.5 секунды)
         current_time = time.time()
-        if current_time - self.last_copy_time < 2.0:
-            items.append(('class:status-success', ' [Copied!]'))
+        if current_time - self.last_copy_time < 1.5:
+            items.append(('class:status-success', ' ✓'))
 
-        # Статус соединения
+        # Статус соединения (сокращенный)
         if stt_client and stt_client.is_connected:
             if getattr(self.editor, 'current_text', '') and self.editor.current_text.strip():
-                items.append(('class:status-recording', ' [Recognizing...]'))
+                items.append(('class:status-recording', ' Recognizing'))
             elif getattr(stt_client, 'is_paused', False):
-                items.append(('class:status-paused', ' [Paused]'))
+                items.append(('class:status-paused', ' Paused'))
             elif stt_client.is_recording:
-                items.append(('class:status-connected', ' [Listening...]'))
+                items.append(('class:status-connected', ' Listening'))
             else:
-                items.append(('class:status-connected', ' [Connected]'))
+                items.append(('class:status-connected', ' Ready'))
         else:
-            items.append(('class:status-disconnected', ' [Disconnected]'))
+            items.append(('class:status-disconnected', ' Offline'))
 
         return FormattedText(items)
 
@@ -641,14 +652,15 @@ class MinimalSTTEditor:
             print("F3 - Копировать весь текст")
             print("Ctrl+C - Выход")
             print("Ctrl+A - Выделить все")
+            print("F8 - Очистить весь текст")
             print("Ctrl+Q - Выход (альтернативный)")
             print("\nИндикаторы состояния:")
             print("● Зеленый - мониторинг голоса")
-            print("● Красный - STT распознавание активно")
-            print("● Оранжевый - на паузе")
+            print("● Красный - активное распознавание")
+            print("● Оранжевый - пауза")
             print("\nАвтоматическое копирование:")
-            print("- Каждое распознанное STT предложение")
-            print("- Любой выделенный мышью текст")
+            print("- Распознанные предложения")
+            print("- Выделенный мышью текст")
             print("\nРедактор готов к работе! Запись начнется автоматически.")
 
     async def cleanup(self):
