@@ -7,7 +7,7 @@
 # Выбираем версию совместимую с CUDA 12.8 и RTX 3090 Ti
 # PyTorch 2.5.1 с CUDA 12.1 - оптимальная стабильность и совместимость
 # ═══════════════════════════════════════════════════════════════
-FROM dockerhub.timeweb.cloud/library/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
+FROM dockerhub.timeweb.cloud/pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
 
 # Только создаем рабочую директорию
 WORKDIR /app
