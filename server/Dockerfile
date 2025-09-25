@@ -3,9 +3,10 @@
 
 # ═══════════════════════════════════════════════════════════════
 # Stage 1: Базовый PyTorch образ с CUDA и cuDNN 9
-# Используем альтернативный registry для доступа
+# Используем timeweb.cloud прокси для доступа к Docker Hub
+# Выбираем версию совместимую с CUDA 12.8 и RTX 3090 Ti
 # ═══════════════════════════════════════════════════════════════
-FROM dockerhub.timeweb.cloud/pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime AS pytorch-base
+FROM dockerhub.timeweb.cloud/library/pytorch:2.6.0-cuda12.4-cudnn9-runtime AS pytorch-base
 
 # Только создаем рабочую директорию
 WORKDIR /app
