@@ -5,16 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mic-stream-py"
 version = "1.0.0"
-description = "Real-time Speech-to-Text system with client-server WebSocket architecture"
+description = "Speech-to-Text client for Parakeet API with TUI editor and voice daemon"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "STT System Team", email = "team@example.com"},
+    {name = "Evgeny Istomin", email = "gena@regimov.net"},
 ]
 maintainers = [
-    {name = "STT System Team", email = "team@example.com"},
+    {name = "Evgeny Istomin", email = "gena@regimov.net"},
 ]
-keywords = ["speech-to-text", "stt", "websocket", "realtime", "whisper", "ai"]
+keywords = ["speech-to-text", "stt", "parakeet", "voice-input", "transcription"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -32,47 +32,26 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    # WebSocket клиент
-    "websockets>=11.0",
-    
+    # HTTP клиент
+    "requests>=2.28.0",
+
     # Аудио обработка
     "pyaudio>=0.2.11",
     "soundfile>=0.13.0",
     "scipy>=1.10.0",
     "numpy>=1.24.0",
-    
+
     # VAD (Voice Activity Detection)
     "webrtcvad-wheels>=2.0.14",
-    
+
     # Утилиты
     "pyperclip>=1.8",
     "prompt_toolkit>=3.0.0",
     "colorama>=0.4.6",
     "tqdm>=4.65.0",
-    
-    # GUI зависимости (tkinter встроен в Python)
 ]
 
 [project.optional-dependencies]
-# Серверные зависимости (для разработки и тестирования локально)
-server = [
-    "RealtimeSTT>=1.0.0",
-    "faster-whisper>=1.0.0",
-    "librosa>=0.10.0",
-]
-
-# GPU поддержка (PyTorch с CUDA)
-gpu = [
-    "torch==2.5.1+cu121; sys_platform != 'darwin'",
-    "torchaudio==2.5.1+cu121; sys_platform != 'darwin'",
-]
-
-# CPU версия (PyTorch без CUDA)
-cpu = [
-    "torch>=2.0.0",
-    "torchaudio>=2.0.0",
-]
-
 # Все зависимости для разработки
 dev = [
     "pytest>=7.0.0",
@@ -86,21 +65,6 @@ dev = [
 # macOS специфичные зависимости
 mac = [
     "sounddevice>=0.4.0",  # Альтернатива PyAudio для macOS
-]
-
-# Linux специфичные зависимости
-linux = [
-    "pyaudio>=0.2.11",     # Основная аудио библиотека для Linux
-]
-
-# Полная установка с GPU
-full = [
-    "mic-stream-py[server,gpu,dev]",
-]
-
-# Полная установка с CPU
-full-cpu = [
-    "mic-stream-py[server,cpu,dev]",
 ]
 
 [project.urls]
