@@ -473,6 +473,19 @@ class STTServer:
             logger.info(f"Control WebSocket server started on port {env_config.get('control_port')}")
             logger.info(f"Data WebSocket server started on port {env_config.get('data_port')}")
             
+            # Запускаем HTTP API сервер для загрузки файлов
+            http_server = None
+            try:
+                from http_api import HTTPTranscribeServer
+                http_port = env_config.get('http_port', 8013)
+                http_server_instance = HTTPTranscribeServer(port=http_port)
+                http_server = await http_server_instance.start()
+                logger.info(f"HTTP API server started on port {http_port}")
+            except ImportError:
+                logger.warning("HTTP API модуль не найден - запуск только WebSocket серверов")
+            except Exception as e:
+                logger.error(f"Не удалось запустить HTTP API сервер: {e}")
+            
             # Запускаем broadcast задачу
             broadcast_task = asyncio.create_task(self.broadcast_audio_messages())
             

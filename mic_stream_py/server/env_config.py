@@ -36,8 +36,8 @@ class EnvConfig:
             "post_speech_silence_duration": self._get_env_float("POST_SPEECH_SILENCE_DURATION", 1.5),  # Увеличено с 0.7 до 1.5
             "min_length_of_recording": self._get_env_float("MIN_LENGTH_OF_RECORDING", 2.0),  # Увеличено с 1.1 до 2.0
             
-            # Настройки качества распознавания (увеличены для лучшей мультиязычности)
-            "beam_size": self._get_env_int("BEAM_SIZE", 10),  # Увеличено для лучшего выбора вариантов
+            # Настройки качества распознавания (оптимальные баланса качества и скорости)
+            "beam_size": self._get_env_int("BEAM_SIZE", 5),  # Оптимальный баланс качества и скорости
             "beam_size_realtime": self._get_env_int("BEAM_SIZE_REALTIME", 5),  # Увеличено для real-time
             "realtime_processing_pause": self._get_env_float("REALTIME_PROCESSING_PAUSE", 0.02),
             
@@ -52,6 +52,11 @@ class EnvConfig:
             # Сетевые порты
             "control_port": self._get_env_int("CONTROL_PORT", 8011),  # Порт управления
             "data_port": self._get_env_int("DATA_PORT", 8012),  # Порт данных
+            "http_port": self._get_env_int("HTTP_PORT", 8013),  # HTTP API порт для загрузки файлов
+            
+            # HTTP API настройки
+            "max_file_size_mb": self._get_env_int("MAX_FILE_SIZE_MB", 500),  # Максимальный размер файла в MB
+            "file_model": self._get_env("FILE_MODEL", "large"),  # Модель для обработки файлов (large для качества)
         }
     
     def _get_env(self, key: str, default: str) -> str:

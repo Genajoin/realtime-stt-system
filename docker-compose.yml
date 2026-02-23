@@ -7,6 +7,7 @@ services:
     ports:
       - "8011:8011"  # Control WebSocket port
       - "8012:8012"  # Data WebSocket port
+      - "8013:8013"  # HTTP API port for file uploads
     env_file:
       - .env
     environment:

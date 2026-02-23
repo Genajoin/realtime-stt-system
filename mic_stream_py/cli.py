@@ -71,32 +71,64 @@ def main():
     main_client(args)
 
 
-def load_env_file(env_file):
+def find_env_file():
+    """Поиск .env файла в стандартных местах"""
+    # Места поиска по приоритету
+    search_paths = [
+        # 1. Текущая рабочая директория
+        os.path.join(os.getcwd(), '.env'),
+        # 2. Домашний каталог пользователя
+        os.path.expanduser('~/.env'),
+        # 3. Домашний каталог с именем mic-stream.env
+        os.path.expanduser('~/mic-stream.env'),
+        # 4. XDG config directory
+        os.path.expanduser('~/.config/mic-stream/.env'),
+        # 5. XDG data directory
+        os.path.expanduser('~/.local/share/mic-stream/.env'),
+        # 6. Запасной вариант - исходный проект (для development)
+        os.path.join(os.path.dirname(__file__), "..", ".env"),
+    ]
+
+    for env_file in search_paths:
+        if os.path.exists(env_file):
+            return env_file
+    return None
+
+def load_env_file(env_file=None):
     """Загрузка переменных окружения из файла"""
-    if os.path.exists(env_file):
+    if env_file is None:
+        env_file = find_env_file()
+
+    if env_file and os.path.exists(env_file):
         print(f"Загрузка конфигурации из: {env_file}")
-        with open(env_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    if '=' in line:
-                        key, value = line.split('=', 1)
-                        os.environ[key.strip()] = value.strip()
-                        print(f"  {key.strip()}={value.strip()}")
+        try:
+            with open(env_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        if '=' in line:
+                            key, value = line.split('=', 1)
+                            os.environ[key.strip()] = value.strip()
+                            print(f"  {key.strip()}={value.strip()}")
+        except Exception as e:
+            print(f"⚠️ Ошибка чтения файла конфигурации: {e}")
     else:
-        print(f"Файл конфигурации не найден: {env_file}")
+        print("ℹ️ Файл конфигурации .env не найден")
         print("Используются значения по умолчанию")
+        print("💡 Для настройки создайте .env файл в текущей директории или домашней папке")
 
 def main_client(args):
     """Точка входа для stt-client команды"""
-    # Загружаем .env файл из корня проекта
-    env_file = os.path.join(os.path.dirname(__file__), "..", ".env")
-    load_env_file(env_file)
+    # Ищем и загружаем .env файл в стандартных местах
+    load_env_file()
     
-    # Устанавливаем переменные окружения из аргументов
-    os.environ['SERVER_HOST'] = args.server
-    os.environ['CONTROL_PORT'] = str(args.control_port)
-    os.environ['DATA_PORT'] = str(args.data_port)
+    # Строим полные URL для подключения к серверу
+    control_url = f"ws://{args.server}:{args.control_port}"
+    data_url = f"ws://{args.server}:{args.data_port}"
+    
+    # Устанавливаем переменные окружения с правильными URL
+    os.environ['CONTROL_URL'] = control_url
+    os.environ['DATA_URL'] = data_url
     
     print(f"🎤 Запуск STT клиента для {args.server}:{args.control_port}")
     

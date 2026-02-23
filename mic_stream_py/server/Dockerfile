@@ -84,11 +84,13 @@ FROM runtime-config AS production
 # Копируем код приложения (самый часто изменяемый слой)
 COPY stt_server.py .
 COPY env_config.py .
+COPY file_transcriber.py .
+COPY http_api.py .
 COPY test_config.py .
 COPY install_packages.py .
 
-# Открываем порты для WebSocket соединений
-EXPOSE 8011 8012
+# Открываем порты для WebSocket и HTTP API
+EXPOSE 8011 8012 8013
 
 # Healthcheck отключен для избежания ошибок WebSocket
 # HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \

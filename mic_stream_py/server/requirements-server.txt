@@ -1,0 +1,16 @@
+# Серверные зависимости для STT сервера
+# Тяжелые библиотеки (RealtimeSTT, faster-whisper) устанавливаются отдельно в Dockerfile
+
+# WebSocket сервер
+websockets>=11.0
+
+# HTTP API сервер для загрузки файлов
+aiohttp>=3.9.0
+
+# Аудио обработка
+scipy>=1.10.0
+numpy>=1.24.0
+soundfile>=0.12.0
+
+# Утилиты
+colorama>=0.4.6
