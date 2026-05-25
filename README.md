@@ -884,3 +884,11 @@ ssh genaminipc.awg "docker logs realtime-stt-server-gpu | head -30"
 ```
 
 🚀 **Высокое качество распознавания русской речи с GPU ускорением!**
+---
+
+## Hire me
+
+I take on commercial engineering work through **[Alpisto d.o.o.](https://alpisto.eu)** (Slovenia, EU) — MATLAB → Python migrations, power-systems algorithms, embedded BLE/RTOS firmware, and IoT backends.
+
+→ [alpisto.eu/matlab-to-python](https://alpisto.eu/matlab-to-python) · **gena@alpisto.eu** · [LinkedIn](https://www.linkedin.com/in/evgenyistomin/)
+
